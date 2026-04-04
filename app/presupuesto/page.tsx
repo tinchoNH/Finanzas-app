@@ -7,7 +7,7 @@ import { supabase, getCuotaNumero } from "@/lib/supabase";
 
 type Distribucion = { id: string; nombre: string; porcentaje: number; color: string; orden: number };
 type Gasto = { categoria_id: string; monto: number; categoria?: { nombre: string; icono: string } };
-type CategoriaGasto = { nombre: string; icono: string; presupuestado: number; real: number };
+type CategoriaGasto = { nombre: string; icono: string; presupuestado: number; real: number; masEsMejor: boolean };
 type EstConVenc = { concepto: string; categoria: string; subcategoria: string; icono: string; monto: number; dia: number };
 type EstSinVenc = { categoria: string; icono: string; color: string; total: number };
 type EstCuota   = { tarjeta: string; color: string; total: number };
@@ -71,41 +71,62 @@ export default function PresupuestoPage() {
   }
 
   async function cargarGastos() {
-    // Carga gastos del mes actual y mes anterior para comparar
-    const { data } = await supabase
-      .from("gastos")
-      .select("categoria_id, monto, categoria:categorias(nombre,icono)")
-      .eq("mes", mesStr);
+    const masEsMejorSet = new Set(["Ingresos", "Personales", "Ahorro"]);
 
-    const { data: prevData } = await supabase
-      .from("gastos")
-      .select("categoria_id, monto, categoria:categorias(nombre,icono,color)")
-      .eq("mes", mesAnteriorStr);
+    const [{ data }, { data: prevData }] = await Promise.all([
+      supabase.from("gastos").select("categoria_id, monto, categoria:categorias(nombre,icono), subcategoria:subcategorias(nombre)").eq("mes", mesStr),
+      supabase.from("gastos").select("categoria_id, monto, categoria:categorias(nombre,icono), subcategoria:subcategorias(nombre)").eq("mes", mesAnteriorStr),
+    ]);
 
-    if (!data) return;
-
-    // Agrupar por categoría
+    // Mapa actual
     const mapaActual: Record<string, { nombre: string; icono: string; real: number }> = {};
-    for (const g of data as any[]) {
+    for (const g of (data ?? []) as any[]) {
       const id = g.categoria_id;
-      if (!mapaActual[id]) {
-        mapaActual[id] = { nombre: g.categoria?.nombre ?? "", icono: g.categoria?.icono ?? "📋", real: 0 };
-      }
-      mapaActual[id].real += g.monto;
+      if (!mapaActual[id]) mapaActual[id] = { nombre: g.categoria?.nombre ?? "", icono: g.categoria?.icono ?? "📋", real: 0 };
+      mapaActual[id].real += Number(g.monto);
     }
 
-    // Presupuestado basado en mes anterior (o 0 si no hay datos)
-    const mapaAnterior: Record<string, number> = {};
+    // Mapa anterior
+    const mapaAnterior: Record<string, { nombre: string; icono: string; total: number }> = {};
     for (const g of (prevData ?? []) as any[]) {
-      mapaAnterior[g.categoria_id] = (mapaAnterior[g.categoria_id] ?? 0) + g.monto;
+      const id = g.categoria_id;
+      if (!mapaAnterior[id]) mapaAnterior[id] = { nombre: g.categoria?.nombre ?? "", icono: g.categoria?.icono ?? "📋", total: 0 };
+      mapaAnterior[id].total += Number(g.monto);
     }
 
-    const resultado: CategoriaGasto[] = Object.entries(mapaActual).map(([id, v]) => ({
-      nombre: v.nombre,
-      icono: v.icono,
-      presupuestado: mapaAnterior[id] ?? v.real,
-      real: v.real,
-    })).sort((a, b) => b.real - a.real);
+    // Merge ambos meses
+    const allIds = new Set([...Object.keys(mapaActual), ...Object.keys(mapaAnterior)]);
+    const resultado: CategoriaGasto[] = [...allIds].map(id => {
+      const act = mapaActual[id];
+      const ant = mapaAnterior[id];
+      const nombre = act?.nombre ?? ant?.nombre ?? "";
+      return {
+        nombre,
+        icono: act?.icono ?? ant?.icono ?? "📋",
+        presupuestado: ant?.total ?? 0,
+        real: act?.real ?? 0,
+        masEsMejor: masEsMejorSet.has(nombre),
+      };
+    }).sort((a, b) => b.real - a.real);
+
+    // Fila especial "Sueldos": subcategorías con "sueldo" en el nombre dentro de Ingresos
+    const sueldoActual = ((data ?? []) as any[])
+      .filter(g => g.categoria?.nombre === "Ingresos" && (g.subcategoria?.nombre ?? "").toLowerCase().includes("sueldo"))
+      .reduce((s: number, g: any) => s + Number(g.monto), 0);
+    const sueldoAnterior = ((prevData ?? []) as any[])
+      .filter(g => g.categoria?.nombre === "Ingresos" && (g.subcategoria?.nombre ?? "").toLowerCase().includes("sueldo"))
+      .reduce((s: number, g: any) => s + Number(g.monto), 0);
+
+    if (sueldoActual > 0 || sueldoAnterior > 0) {
+      const idxIngresos = resultado.findIndex(r => r.nombre === "Ingresos");
+      resultado.splice(idxIngresos + 1, 0, {
+        nombre: "Sueldos",
+        icono: "💰",
+        presupuestado: sueldoAnterior,
+        real: sueldoActual,
+        masEsMejor: true,
+      });
+    }
 
     setGastosPorCat(resultado);
   }
@@ -326,13 +347,39 @@ export default function PresupuestoPage() {
         ) : (
           <div className="space-y-4">
             {gastosPorCat.map((p) => {
-              const pct = p.presupuestado > 0 ? Math.round((p.real / p.presupuestado) * 100) : 100;
-              const color = pct >= 100 ? "#ef4444" : pct >= 80 ? "#f59e0b" : "#22c55e";
+              const pct = p.presupuestado > 0 ? Math.round((p.real / p.presupuestado) * 100) : (p.real > 0 ? 100 : 0);
+              const esIgual = pct >= 95 && pct <= 105;
               const diferencia = p.presupuestado - p.real;
+
+              // Color según si "más es mejor" o "menos es mejor"
+              let color: string;
+              if (esIgual) {
+                color = "#f59e0b"; // Naranja = igual
+              } else if (p.masEsMejor) {
+                color = pct > 100 ? "#22c55e" : "#ef4444"; // Más = verde
+              } else {
+                color = pct < 100 ? "#22c55e" : "#ef4444"; // Menos = verde
+              }
+
+              // Color de la diferencia
+              let diffColor: string;
+              if (esIgual) {
+                diffColor = "#f59e0b";
+              } else if (p.masEsMejor) {
+                diffColor = diferencia <= 0 ? "#22c55e" : "#ef4444"; // Ganó más = verde
+              } else {
+                diffColor = diferencia >= 0 ? "#22c55e" : "#ef4444"; // Gastó menos = verde
+              }
+
+              const esSueldos = p.nombre === "Sueldos";
+
               return (
-                <div key={p.nombre} className="p-4 rounded-lg" style={{ backgroundColor: "#0f172a" }}>
+                <div key={p.nombre} className="p-4 rounded-lg" style={{ backgroundColor: "#0f172a", marginLeft: esSueldos ? "24px" : 0, borderLeft: esSueldos ? "3px solid #f59e0b" : "none" }}>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium" style={{ color: "#e2e8f0" }}>{p.icono} {p.nombre}</span>
+                    <span className="text-sm font-medium" style={{ color: "#e2e8f0" }}>
+                      {p.icono} {p.nombre}
+                      {esSueldos && <span className="text-xs ml-2" style={{ color: "#64748b" }}>(solo sueldos)</span>}
+                    </span>
                     <div className="flex items-center gap-4 text-sm">
                       <span style={{ color: "#64748b" }}>
                         Ref: <strong style={{ color: "#94a3b8" }}>${p.presupuestado.toLocaleString("es-AR")}</strong>
@@ -340,10 +387,12 @@ export default function PresupuestoPage() {
                       <span style={{ color: "#64748b" }}>
                         Real: <strong style={{ color }}>${p.real.toLocaleString("es-AR")}</strong>
                       </span>
-                      <span className="text-xs" style={{ color: diferencia >= 0 ? "#22c55e" : "#ef4444" }}>
-                        {diferencia >= 0
-                          ? `↓ $${diferencia.toLocaleString("es-AR")} menos`
-                          : `↑ $${Math.abs(diferencia).toLocaleString("es-AR")} más`}
+                      <span className="text-xs" style={{ color: diffColor }}>
+                        {diferencia === 0
+                          ? "= Igual"
+                          : diferencia > 0
+                            ? `↓ $${diferencia.toLocaleString("es-AR")} menos`
+                            : `↑ $${Math.abs(diferencia).toLocaleString("es-AR")} más`}
                       </span>
                     </div>
                   </div>
