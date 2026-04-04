@@ -86,7 +86,7 @@ export default function PresupuestoPage() {
 
     // Agrupar por categoría
     const mapaActual: Record<string, { nombre: string; icono: string; real: number }> = {};
-    for (const g of data as Gasto[]) {
+    for (const g of data as any[]) {
       const id = g.categoria_id;
       if (!mapaActual[id]) {
         mapaActual[id] = { nombre: g.categoria?.nombre ?? "", icono: g.categoria?.icono ?? "📋", real: 0 };
@@ -96,7 +96,7 @@ export default function PresupuestoPage() {
 
     // Presupuestado basado en mes anterior (o 0 si no hay datos)
     const mapaAnterior: Record<string, number> = {};
-    for (const g of (prevData ?? []) as Gasto[]) {
+    for (const g of (prevData ?? []) as any[]) {
       mapaAnterior[g.categoria_id] = (mapaAnterior[g.categoria_id] ?? 0) + g.monto;
     }
 

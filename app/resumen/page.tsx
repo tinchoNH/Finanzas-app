@@ -163,7 +163,7 @@ export default function ResumenPage() {
       .eq("mes", mesStr)
       .eq("categoria_id", catFiltro);
     const mapa: Record<string, number> = {};
-    for (const g of (data ?? []) as GastoSubcat[]) {
+    for (const g of (data ?? []) as any[]) {
       const nombre = (g.subcategoria as any)?.nombre ?? "Sin subcategoría";
       mapa[nombre] = (mapa[nombre] ?? 0) + Number(g.monto);
     }
