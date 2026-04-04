@@ -348,7 +348,7 @@ export default function PresupuestoPage() {
           <div className="space-y-4">
             {gastosPorCat.map((p) => {
               const pct = p.presupuestado > 0 ? Math.round((p.real / p.presupuestado) * 100) : (p.real > 0 ? 100 : 0);
-              const esIgual = pct >= 95 && pct <= 105;
+              const esIgual = pct >= 98 && pct <= 102;
               const diferencia = p.presupuestado - p.real;
 
               // Color según si "más es mejor" o "menos es mejor"
