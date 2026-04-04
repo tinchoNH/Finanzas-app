@@ -95,6 +95,29 @@ export default function GastosPage() {
     setShowForm(true);
   }
 
+  function abrirNuevoIngreso() {
+    const catIngresos = categorias.find(c => c.nombre === "Ingresos");
+    setEditandoId(null);
+    setForm({
+      descripcion: "", monto: "",
+      categoria_id: catIngresos?.id ?? "",
+      subcategoria_id: "",
+      fecha: new Date().toISOString().split("T")[0],
+      tiene_vencimiento: false, fecha_vencimiento: "", pagado: false,
+    });
+    setShowForm(true);
+  }
+
+  function abrirNuevoGasto() {
+    setEditandoId(null);
+    setForm({
+      descripcion: "", monto: "", categoria_id: "", subcategoria_id: "",
+      fecha: new Date().toISOString().split("T")[0],
+      tiene_vencimiento: false, fecha_vencimiento: "", pagado: false,
+    });
+    setShowForm(true);
+  }
+
   async function guardarGasto() {
     if (!form.monto || !form.categoria_id) return;
     const payload = {
@@ -128,7 +151,7 @@ export default function GastosPage() {
   }
 
   async function eliminarGasto(id: string) {
-    if (!confirm("¿Eliminar este gasto?")) return;
+    if (!confirm("¿Eliminar este registro?")) return;
     await supabase.from("gastos").delete().eq("id", id);
     setGastos(prev => prev.filter(g => g.id !== id));
   }
@@ -156,26 +179,146 @@ export default function GastosPage() {
     return matchBusqueda && matchCat;
   });
 
-  const totalFiltrado = gastosFiltrados.reduce((s, g) => s + g.monto, 0);
-  const totalMes = gastos.reduce((s, g) => s + g.monto, 0);
-  const pendientes = gastos.filter(g => !g.pagado).length;
+  // Separar ingresos de gastos
+  const ingresosFiltrados = gastosFiltrados.filter(g => g.categoria?.nombre === "Ingresos");
+  const gastosSinIngresos = gastosFiltrados.filter(g => g.categoria?.nombre !== "Ingresos");
+  const totalIngresosMes = gastos.filter(g => g.categoria?.nombre === "Ingresos").reduce((s, g) => s + g.monto, 0);
+  const totalGastosMes = gastos.filter(g => g.categoria?.nombre !== "Ingresos").reduce((s, g) => s + g.monto, 0);
+
+  // Detectar si el form es para ingreso
+  const catSeleccionada = categorias.find(c => c.id === form.categoria_id);
+  const esFormIngreso = catSeleccionada?.nombre === "Ingresos";
+  const tituloModal = editandoId
+    ? (esFormIngreso ? "Editar Ingreso" : "Editar Gasto")
+    : (esFormIngreso ? "Nuevo Ingreso" : "Nuevo Gasto");
+
+  function renderTabla(items: Gasto[], titulo: string, icono: string, colorTotal: string, emptyMsg: string) {
+    const total = items.reduce((s, g) => s + g.monto, 0);
+    return (
+      <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
+        <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid #334155" }}>
+          <h2 className="font-semibold" style={{ color: "#e2e8f0" }}>{icono} {titulo} — {MESES[mes]} {anio}</h2>
+          <span className="text-sm font-bold" style={{ color: colorTotal }}>
+            ${total.toLocaleString("es-AR")}
+          </span>
+        </div>
+        {items.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10">
+            <p className="text-sm" style={{ color: "#64748b" }}>{emptyMsg}</p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #334155", backgroundColor: "#0f172a" }}>
+                    {["Fecha", "Categoría", "Subcategoría", "Monto", "Vencimiento", "Estado", "Descripción", ""].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap"
+                        style={{ color: "#64748b" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((g) => (
+                    <tr key={g.id} style={{ borderBottom: "1px solid #33415530" }}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#0f172a44")}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}>
+                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#64748b" }}>
+                        {new Date(g.fecha + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {g.categoria && (
+                          <span className="px-2 py-0.5 rounded-full text-xs"
+                            style={{ backgroundColor: (g.categoria.color || "#38bdf8") + "22", color: g.categoria.color || "#38bdf8" }}>
+                            {g.categoria.icono} {g.categoria.nombre}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#94a3b8" }}>
+                        {g.subcategoria?.nombre ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: "#e2e8f0" }}>
+                        ${g.monto.toLocaleString("es-AR")}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#64748b" }}>
+                        {g.fecha_vencimiento
+                          ? new Date(g.fecha_vencimiento + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => togglePagado(g)}>
+                          {g.pagado
+                            ? <span className="px-2 py-0.5 rounded-full text-xs flex items-center gap-1"
+                                style={{ backgroundColor: "#14532d", color: "#22c55e" }}>
+                                <Check size={10} /> Pagado
+                              </span>
+                            : <span className="px-2 py-0.5 rounded-full text-xs"
+                                style={{ backgroundColor: "#450a0a", color: "#ef4444" }}>Pendiente</span>
+                          }
+                        </button>
+                      </td>
+                      <td className="px-4 py-3" style={{ color: "#64748b", maxWidth: "160px" }}>
+                        <span className="block truncate text-xs">
+                          {!g.descripcion || g.descripcion === g.subcategoria?.nombre ? "—" : g.descripcion}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          <button onClick={() => abrirEditar(g)} className="p-1.5 rounded-lg"
+                            style={{ color: "#475569" }}
+                            onMouseEnter={e => (e.currentTarget.style.color = "#38bdf8")}
+                            onMouseLeave={e => (e.currentTarget.style.color = "#475569")}>
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => eliminarGasto(g.id)} className="p-1.5 rounded-lg"
+                            style={{ color: "#475569" }}
+                            onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+                            onMouseLeave={e => (e.currentTarget.style.color = "#475569")}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 py-3 flex justify-between text-sm"
+              style={{ borderTop: "1px solid #334155", color: "#64748b" }}>
+              <span>{items.length} registro{items.length !== 1 ? "s" : ""}</span>
+              <span>Total: <strong style={{ color: colorTotal }}>${total.toLocaleString("es-AR")}</strong></span>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Gastos</h1>
+          <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Gastos e Ingresos</h1>
           <p className="text-sm mt-1" style={{ color: "#64748b" }}>
-            {MESES[mes]} {anio} · ${totalMes.toLocaleString("es-AR")} total
-            {pendientes > 0 && <span className="ml-2" style={{ color: "#f59e0b" }}>· {pendientes} pendientes</span>}
+            {MESES[mes]} {anio} ·{" "}
+            <span style={{ color: "#22c55e" }}>Ingresos: ${totalIngresosMes.toLocaleString("es-AR")}</span>
+            {" · "}
+            <span style={{ color: "#ef4444" }}>Gastos: ${totalGastosMes.toLocaleString("es-AR")}</span>
           </p>
         </div>
-        <button onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white"
-          style={{ backgroundColor: "#0ea5e9" }}>
-          <Plus size={16} /> Nuevo gasto
-        </button>
+        <div className="flex gap-2">
+          <button onClick={abrirNuevoIngreso}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white"
+            style={{ backgroundColor: "#22c55e" }}>
+            <Plus size={16} /> Nuevo ingreso
+          </button>
+          <button onClick={abrirNuevoGasto}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white"
+            style={{ backgroundColor: "#0ea5e9" }}>
+            <Plus size={16} /> Nuevo gasto
+          </button>
+        </div>
       </div>
 
       {/* Modal */}
@@ -183,7 +326,7 @@ export default function GastosPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "#00000088" }}>
           <div className="w-full max-w-lg rounded-2xl p-6 space-y-4" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold" style={{ color: "#e2e8f0" }}>{editandoId ? "Editar Gasto" : "Nuevo Gasto"}</h2>
+              <h2 className="text-lg font-semibold" style={{ color: "#e2e8f0" }}>{tituloModal}</h2>
               <button onClick={resetForm} style={{ color: "#64748b" }}><X size={18} /></button>
             </div>
 
@@ -266,7 +409,7 @@ export default function GastosPage() {
                 style={{ backgroundColor: "#334155", color: "#94a3b8" }}>Cancelar</button>
               <button onClick={guardarGasto}
                 className="flex-1 py-2 rounded-lg text-sm font-medium text-white"
-                style={{ backgroundColor: !form.monto || !form.categoria_id ? "#1e3a5f" : "#0ea5e9" }}>
+                style={{ backgroundColor: !form.monto || !form.categoria_id ? "#1e3a5f" : esFormIngreso ? "#22c55e" : "#0ea5e9" }}>
                 {editandoId ? "Actualizar" : "Guardar"}
               </button>
             </div>
@@ -304,112 +447,18 @@ export default function GastosPage() {
         </select>
       </div>
 
-      {/* Tabla */}
+      {/* Contenido */}
       {loading ? (
         <div className="flex items-center justify-center h-32">
-          <p style={{ color: "#64748b" }}>Cargando gastos...</p>
+          <p style={{ color: "#64748b" }}>Cargando...</p>
         </div>
       ) : (
-        <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
-          {gastosFiltrados.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <p className="text-4xl mb-3">💸</p>
-              <p className="text-sm mb-1" style={{ color: "#64748b" }}>
-                {busqueda || catFiltro !== "todas" ? "Sin resultados para el filtro aplicado" : `No hay gastos para ${MESES[mes]} ${anio}`}
-              </p>
-              {!busqueda && catFiltro === "todas" && (
-                <button onClick={() => setShowForm(true)}
-                  className="mt-4 px-4 py-2 rounded-lg text-sm font-medium text-white"
-                  style={{ backgroundColor: "#0ea5e9" }}>+ Agregar el primero</button>
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid #334155", backgroundColor: "#0f172a" }}>
-                      {["Fecha", "Categoría", "Subcategoría", "Monto", "Vencimiento", "Estado", "Descripción", ""].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap"
-                          style={{ color: "#64748b" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {gastosFiltrados.map((g) => (
-                      <tr key={g.id} style={{ borderBottom: "1px solid #33415530" }}
-                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#0f172a44")}
-                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}>
-                        <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#64748b" }}>
-                          {new Date(g.fecha + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {g.categoria && (
-                            <span className="px-2 py-0.5 rounded-full text-xs"
-                              style={{ backgroundColor: (g.categoria.color || "#38bdf8") + "22", color: g.categoria.color || "#38bdf8" }}>
-                              {g.categoria.icono} {g.categoria.nombre}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#94a3b8" }}>
-                          {g.subcategoria?.nombre ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: "#e2e8f0" }}>
-                          ${g.monto.toLocaleString("es-AR")}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#64748b" }}>
-                          {g.fecha_vencimiento
-                            ? new Date(g.fecha_vencimiento + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <button onClick={() => togglePagado(g)}>
-                            {g.pagado
-                              ? <span className="px-2 py-0.5 rounded-full text-xs flex items-center gap-1"
-                                  style={{ backgroundColor: "#14532d", color: "#22c55e" }}>
-                                  <Check size={10} /> Pagado
-                                </span>
-                              : <span className="px-2 py-0.5 rounded-full text-xs"
-                                  style={{ backgroundColor: "#450a0a", color: "#ef4444" }}>Pendiente</span>
-                            }
-                          </button>
-                        </td>
-                        <td className="px-4 py-3" style={{ color: "#64748b", maxWidth: "160px" }}>
-                          <span className="block truncate text-xs">
-                            {!g.descripcion || g.descripcion === g.subcategoria?.nombre ? "—" : g.descripcion}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            <button onClick={() => abrirEditar(g)} className="p-1.5 rounded-lg"
-                              style={{ color: "#475569" }}
-                              onMouseEnter={e => (e.currentTarget.style.color = "#38bdf8")}
-                              onMouseLeave={e => (e.currentTarget.style.color = "#475569")}>
-                              <Edit2 size={14} />
-                            </button>
-                            <button onClick={() => eliminarGasto(g.id)} className="p-1.5 rounded-lg"
-                              style={{ color: "#475569" }}
-                              onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
-                              onMouseLeave={e => (e.currentTarget.style.color = "#475569")}>
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="px-4 py-3 flex justify-between text-sm"
-                style={{ borderTop: "1px solid #334155", color: "#64748b" }}>
-                <span>
-                  {gastosFiltrados.length} registro{gastosFiltrados.length !== 1 ? "s" : ""}
-                  {gastosFiltrados.length !== gastos.length && ` (de ${gastos.length} total)`}
-                </span>
-                <span>Total filtrado: <strong style={{ color: "#e2e8f0" }}>${totalFiltrado.toLocaleString("es-AR")}</strong></span>
-              </div>
-            </>
-          )}
+        <div className="space-y-6">
+          {/* Ingresos del mes */}
+          {renderTabla(ingresosFiltrados, "Ingresos del mes", "💵", "#22c55e", `Sin ingresos para ${MESES[mes]} ${anio}`)}
+
+          {/* Gastos del mes */}
+          {renderTabla(gastosSinIngresos, "Gastos del mes", "💸", "#ef4444", `Sin gastos para ${MESES[mes]} ${anio}`)}
         </div>
       )}
     </div>
