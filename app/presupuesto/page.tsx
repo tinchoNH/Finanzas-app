@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+// recharts removido — ya no se usa el gráfico dona
 import { Edit2, Save, X } from "lucide-react";
 import { supabase, getCuotaNumero } from "@/lib/supabase";
 
@@ -300,28 +300,68 @@ export default function PresupuestoPage() {
           )}
         </div>
 
-        {/* Gráfico dona */}
+        {/* Cumplimiento de distribución */}
         <div className="rounded-xl p-5" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
-          <h2 className="font-semibold mb-1" style={{ color: "#e2e8f0" }}>Vista gráfica</h2>
-          <p className="text-xs mb-3" style={{ color: "#64748b" }}>
+          <h2 className="font-semibold mb-1" style={{ color: "#e2e8f0" }}>Cumplimiento</h2>
+          <p className="text-xs mb-4" style={{ color: "#64748b" }}>
             Ingreso mensual: <strong style={{ color: totalIngresos > 0 ? "#22c55e" : "#64748b" }}>
               {totalIngresos > 0 ? `$${totalIngresos.toLocaleString("es-AR")}` : "Sin datos"}
             </strong>
           </p>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={distribucion} cx="50%" cy="50%" innerRadius={55} outerRadius={85}
-                dataKey="porcentaje" paddingAngle={3}>
-                {distribucion.map((d, i) => <Cell key={i} fill={d.color} />)}
-              </Pie>
-              <Tooltip
-                contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#e2e8f0" }}
-                formatter={(_: any, __: any, props: any) => [
-                  `${props.payload.porcentaje}% · $${Math.round(totalIngresos * props.payload.porcentaje / 100).toLocaleString("es-AR")}`,
-                  props.payload.nombre
-                ]} />
-            </PieChart>
-          </ResponsiveContainer>
+          {totalIngresos > 0 ? (
+            <div className="space-y-3">
+              {(() => {
+                const mapeo: Record<string, string[]> = {
+                  "Gastos Fijos y Diarios": ["Gastos fijos", "Gastos Diarios"],
+                  "Tarjetas": ["Tarjetas"],
+                  "Personales": ["Personales"],
+                  "Ahorro": ["Ahorro"],
+                  "Deuda": [],
+                };
+                return distribucion.map(d => {
+                  const presup = Math.round(totalIngresos * d.porcentaje / 100);
+                  const cats = mapeo[d.nombre] ?? [d.nombre];
+                  const real = gastosPorCat.filter(g => cats.includes(g.nombre)).reduce((s, g) => s + g.real, 0);
+                  const pctUso = presup > 0 ? Math.round(real / presup * 100) : 0;
+                  const diff = presup - real;
+                  const ok = real <= presup;
+                  const color = d.porcentaje === 0 ? "#475569" : ok ? "#22c55e" : "#ef4444";
+                  return (
+                    <div key={d.id} className="p-3 rounded-lg" style={{ backgroundColor: "#0f172a" }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                          <span className="text-sm font-medium" style={{ color: "#e2e8f0" }}>{d.nombre}</span>
+                          <span className="text-xs" style={{ color: "#475569" }}>{d.porcentaje}%</span>
+                        </div>
+                        {d.porcentaje > 0 && (
+                          <span className="text-xs font-semibold" style={{ color }}>
+                            {ok ? `✓ $${diff.toLocaleString("es-AR")} disponible` : `⚠ $${Math.abs(diff).toLocaleString("es-AR")} excedido`}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs" style={{ color: "#64748b" }}>
+                        <span>Límite: <strong style={{ color: "#94a3b8" }}>${presup.toLocaleString("es-AR")}</strong></span>
+                        <span>Usado: <strong style={{ color }}>${real.toLocaleString("es-AR")}</strong></span>
+                        {d.porcentaje > 0 && <span style={{ color }}>{pctUso}%</span>}
+                      </div>
+                      {d.porcentaje > 0 && (
+                        <div className="h-1.5 rounded-full mt-2" style={{ backgroundColor: "#1e293b" }}>
+                          <div className="h-1.5 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(pctUso, 100)}%`, backgroundColor: color }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8">
+              <p className="text-2xl mb-2">📊</p>
+              <p className="text-xs text-center" style={{ color: "#64748b" }}>Sin ingresos para comparar</p>
+            </div>
+          )}
         </div>
       </div>
 
