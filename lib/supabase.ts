@@ -80,6 +80,21 @@ export type Ingreso = {
   recurrente: boolean
 }
 
+export type Deuda = {
+  id: string
+  user_id: string
+  nombre: string
+  tipo: 'cuotas' | 'libre'
+  monto_total: number
+  cuotas_total: number | null
+  interes_mensual: number | null
+  monto_cuota: number | null
+  fecha_inicio: string
+  activa: boolean
+  notas: string | null
+  created_at: string
+}
+
 export type DistribucionIngreso = {
   id: string
   nombre: string

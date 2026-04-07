@@ -114,6 +114,22 @@ create table if not exists distribucion_ingresos (
   created_at timestamp with time zone default now()
 );
 
+-- DEUDAS
+create table if not exists deudas (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references usuarios(id) on delete cascade not null,
+  nombre text not null,
+  tipo text not null default 'cuotas', -- 'cuotas' o 'libre'
+  monto_total numeric(12,2) not null,
+  cuotas_total int, -- NULL si es libre
+  interes_mensual numeric(5,2), -- % mensual, NULL si es libre
+  monto_cuota numeric(12,2), -- monto fijo por cuota, NULL si es libre
+  fecha_inicio date not null default now(),
+  activa boolean default true,
+  notas text,
+  created_at timestamp with time zone default now()
+);
+
 -- HISTORIAL DE CAMBIOS
 create table if not exists historial (
   id uuid default gen_random_uuid() primary key,
@@ -159,6 +175,7 @@ alter table pagos enable row level security;
 alter table ingresos enable row level security;
 alter table tarjetas enable row level security;
 alter table presupuesto_mensual enable row level security;
+alter table deudas enable row level security;
 alter table historial enable row level security;
 
 -- Políticas: cada usuario solo ve sus datos
@@ -167,6 +184,7 @@ create policy "usuarios_propios" on gastos_cuotas for all using (auth.uid() = us
 create policy "usuarios_propios" on pagos for all using (auth.uid() = user_id);
 create policy "usuarios_propios" on ingresos for all using (auth.uid() = user_id);
 create policy "usuarios_propios" on tarjetas for all using (auth.uid() = user_id);
+create policy "usuarios_propios" on deudas for all using (auth.uid() = user_id);
 create policy "usuarios_propios" on historial for all using (auth.uid() = user_id);
 
 -- Categorías y distribución son compartidas (sin RLS)

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, CreditCard, Receipt, PieChart, BarChart3, Tag, Download, LogOut } from "lucide-react";
+import { LayoutDashboard, CreditCard, Receipt, PieChart, BarChart3, Tag, Download, LogOut, Landmark } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 
@@ -10,6 +10,7 @@ const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard, section: "Principal" },
   { label: "Gastos", href: "/gastos", icon: Receipt, section: "Principal" },
   { label: "Tarjetas", href: "/tarjetas", icon: CreditCard, section: "Principal" },
+  { label: "Deudas", href: "/deudas", icon: Landmark, section: "Principal" },
   { label: "Presupuesto", href: "/presupuesto", icon: PieChart, section: "Principal" },
   { label: "Resumen", href: "/resumen", icon: BarChart3, section: "Análisis" },
   { label: "Categorías", href: "/categorias", icon: Tag, section: "Análisis" },
