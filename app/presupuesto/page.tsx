@@ -28,6 +28,8 @@ export default function PresupuestoPage() {
   const [estConVenc, setEstConVenc] = useState<EstConVenc[]>([]);
   const [estSinVenc, setEstSinVenc] = useState<EstSinVenc[]>([]);
   const [estCuotas, setEstCuotas] = useState<EstCuota[]>([]);
+  const [totalSueldos, setTotalSueldos] = useState(0);
+  const [totalTarjetasCompartidas, setTotalTarjetasCompartidas] = useState(0);
 
   const mesStr = `${anio}-${String(mes + 1).padStart(2, "0")}`;
   const mesAnteriorStr = (() => {
@@ -126,6 +128,40 @@ export default function PresupuestoPage() {
         real: sueldoActual,
         masEsMejor: true,
       });
+    }
+
+    // Guardar total sueldos para cumplimiento
+    setTotalSueldos(sueldoActual);
+
+    // Calcular tarjetas compartidas (excluir personales) para cumplimiento
+    try {
+      const stored = localStorage.getItem("tarjetas_personales");
+      if (stored) {
+        const ids = new Set(JSON.parse(stored) as string[]);
+        if (ids.size > 0) {
+          const { data: tjs } = await supabase.from("tarjetas").select("id, nombre");
+          if (tjs) {
+            const personalNombres = new Set(
+              (tjs as any[]).filter(t => ids.has(t.id)).map(t => (t.nombre as string).trim().toLowerCase())
+            );
+            const totalTarjetas = ((data ?? []) as any[])
+              .filter(g => g.categoria?.nombre === "Tarjetas")
+              .reduce((s: number, g: any) => s + Number(g.monto), 0);
+            const totalPersonal = ((data ?? []) as any[])
+              .filter(g => g.categoria?.nombre === "Tarjetas" && personalNombres.has((g.subcategoria?.nombre ?? "").trim().toLowerCase()))
+              .reduce((s: number, g: any) => s + Number(g.monto), 0);
+            setTotalTarjetasCompartidas(totalTarjetas - totalPersonal);
+          } else {
+            setTotalTarjetasCompartidas(mapaActual[Object.keys(mapaActual).find(k => mapaActual[k].nombre === "Tarjetas") ?? ""]?.real ?? 0);
+          }
+        } else {
+          setTotalTarjetasCompartidas(mapaActual[Object.keys(mapaActual).find(k => mapaActual[k].nombre === "Tarjetas") ?? ""]?.real ?? 0);
+        }
+      } else {
+        setTotalTarjetasCompartidas(mapaActual[Object.keys(mapaActual).find(k => mapaActual[k].nombre === "Tarjetas") ?? ""]?.real ?? 0);
+      }
+    } catch {
+      setTotalTarjetasCompartidas(resultado.find(r => r.nombre === "Tarjetas")?.real ?? 0);
     }
 
     setGastosPorCat(resultado);
@@ -304,11 +340,14 @@ export default function PresupuestoPage() {
         <div className="rounded-xl p-5" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
           <h2 className="font-semibold mb-1" style={{ color: "#e2e8f0" }}>Cumplimiento</h2>
           <p className="text-xs mb-4" style={{ color: "#64748b" }}>
-            Ingreso mensual: <strong style={{ color: totalIngresos > 0 ? "#22c55e" : "#64748b" }}>
-              {totalIngresos > 0 ? `$${totalIngresos.toLocaleString("es-AR")}` : "Sin datos"}
+            Base sueldos: <strong style={{ color: totalSueldos > 0 ? "#22c55e" : "#64748b" }}>
+              {totalSueldos > 0 ? `$${totalSueldos.toLocaleString("es-AR")}` : "Sin datos"}
             </strong>
+            {totalSueldos > 0 && totalSueldos !== totalIngresos && (
+              <span className="ml-2" style={{ color: "#475569" }}>(Ingreso total: ${totalIngresos.toLocaleString("es-AR")})</span>
+            )}
           </p>
-          {totalIngresos > 0 ? (
+          {totalSueldos > 0 ? (
             <div className="space-y-3">
               {(() => {
                 const mapeo: Record<string, string[]> = {
@@ -319,9 +358,10 @@ export default function PresupuestoPage() {
                   "Deuda": [],
                 };
                 return distribucion.map(d => {
-                  const presup = Math.round(totalIngresos * d.porcentaje / 100);
+                  const presup = Math.round(totalSueldos * d.porcentaje / 100);
                   const cats = mapeo[d.nombre] ?? [d.nombre];
-                  const real = gastosPorCat.filter(g => cats.includes(g.nombre)).reduce((s, g) => s + g.real, 0);
+                  // Para Tarjetas usar total compartidas (excluye personales)
+                  const real = d.nombre === "Tarjetas" ? totalTarjetasCompartidas : gastosPorCat.filter(g => cats.includes(g.nombre)).reduce((s, g) => s + g.real, 0);
                   const pctUso = presup > 0 ? Math.round(real / presup * 100) : 0;
                   const diff = presup - real;
                   const ok = real <= presup;

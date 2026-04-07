@@ -26,6 +26,9 @@ export default function TarjetasPage() {
   const [pagosMesAnterior, setPagosMesAnterior] = useState<Record<string, number>>({});
   const [personalIds, setPersonalIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState({ ...formVacio });
+  const [showFormTarjeta, setShowFormTarjeta] = useState(false);
+  const [formTarjeta, setFormTarjeta] = useState({ nombre: "", tipo: "crédito", color: "#0ea5e9" });
+  const coloresTarjeta = ["#0ea5e9","#22c55e","#f59e0b","#a855f7","#ef4444","#ec4899","#f97316","#14b8a6"];
 
   const anioNum      = parseInt(anio);
   const mesStr       = `${anio}-${String(mesIdx + 1).padStart(2, "0")}`;
@@ -106,6 +109,14 @@ export default function TarjetasPage() {
       try { localStorage.setItem("tarjetas_personales", JSON.stringify([...next])); } catch {}
       return next;
     });
+  }
+
+  async function guardarTarjeta() {
+    if (!formTarjeta.nombre.trim()) return;
+    const { data } = await supabase.from("tarjetas").insert({ nombre: formTarjeta.nombre.trim(), tipo: formTarjeta.tipo, color: formTarjeta.color }).select().single();
+    if (data) { setTarjetas(prev => [...prev, data]); setExpandidas(prev => [...prev, data.id]); }
+    setFormTarjeta({ nombre: "", tipo: "crédito", color: "#0ea5e9" });
+    setShowFormTarjeta(false);
   }
 
   function abrirNuevo() { setEditandoId(null); setForm({ ...formVacio }); setShowForm(true); }
@@ -195,6 +206,9 @@ export default function TarjetasPage() {
             value={anio} onChange={e => setAnio(e.target.value)}>
             {[2024, 2025, 2026, 2027].map(y => <option key={y}>{y}</option>)}
           </select>
+          <button onClick={() => setShowFormTarjeta(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white" style={{ backgroundColor: "#22c55e" }}>
+            <Plus size={16} /> Nueva tarjeta
+          </button>
           <button onClick={abrirNuevo} className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white" style={{ backgroundColor: "#0ea5e9" }}>
             <Plus size={16} /> Cargar gasto
           </button>
@@ -264,6 +278,50 @@ export default function TarjetasPage() {
                 className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
                 style={{ backgroundColor: editandoId ? "#f59e0b" : "#0ea5e9" }}>
                 {saving ? "Guardando..." : editandoId ? "Guardar cambios" : "Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal nueva tarjeta */}
+      {showFormTarjeta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "#00000088" }}>
+          <div className="w-full max-w-sm rounded-2xl p-6 space-y-4" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold" style={{ color: "#e2e8f0" }}>Nueva tarjeta</h2>
+              <button onClick={() => setShowFormTarjeta(false)} style={{ color: "#64748b" }}>✕</button>
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: "#64748b" }}>Nombre</label>
+              <input className="w-full px-3 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: "#0f172a", border: "1px solid #334155", color: "#e2e8f0" }}
+                placeholder="Ej: Visa Tincho" value={formTarjeta.nombre}
+                onChange={e => setFormTarjeta(p => ({ ...p, nombre: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: "#64748b" }}>Tipo</label>
+              <select className="w-full px-3 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: "#0f172a", border: "1px solid #334155", color: "#e2e8f0" }}
+                value={formTarjeta.tipo} onChange={e => setFormTarjeta(p => ({ ...p, tipo: e.target.value }))}>
+                <option value="crédito">Crédito</option>
+                <option value="débito">Débito</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: "#64748b" }}>Color</label>
+              <div className="flex gap-2 flex-wrap">
+                {coloresTarjeta.map(c => (
+                  <button key={c} onClick={() => setFormTarjeta(p => ({ ...p, color: c }))}
+                    className="w-8 h-8 rounded-full" style={{ backgroundColor: c, outline: formTarjeta.color === c ? "3px solid white" : "none", outlineOffset: "2px" }} />
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowFormTarjeta(false)} className="flex-1 py-2 rounded-lg text-sm" style={{ backgroundColor: "#334155", color: "#94a3b8" }}>Cancelar</button>
+              <button onClick={guardarTarjeta} disabled={!formTarjeta.nombre.trim()}
+                className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ backgroundColor: "#22c55e" }}>
+                Crear tarjeta
               </button>
             </div>
           </div>
