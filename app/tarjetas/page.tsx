@@ -113,7 +113,9 @@ export default function TarjetasPage() {
 
   async function guardarTarjeta() {
     if (!formTarjeta.nombre.trim()) return;
-    const { data } = await supabase.from("tarjetas").insert({ nombre: formTarjeta.nombre.trim(), tipo: formTarjeta.tipo, color: formTarjeta.color }).select().single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from("tarjetas").insert({ user_id: user.id, nombre: formTarjeta.nombre.trim(), tipo: formTarjeta.tipo, color: formTarjeta.color }).select().single();
     if (data) { setTarjetas(prev => [...prev, data]); setExpandidas(prev => [...prev, data.id]); }
     setFormTarjeta({ nombre: "", tipo: "crédito", color: "#0ea5e9" });
     setShowFormTarjeta(false);
