@@ -89,6 +89,7 @@ export type Deuda = {
   cuotas_total: number | null
   interes_mensual: number | null
   monto_cuota: number | null
+  cuotas_detalle: number[] | null
   fecha_inicio: string
   activa: boolean
   notas: string | null

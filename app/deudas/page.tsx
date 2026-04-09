@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Loader2, Edit2, Trash2, ChevronDown, ChevronUp, Landmark, HandCoins } from "lucide-react";
+import { Plus, Loader2, Edit2, Trash2, ChevronDown, ChevronUp, Landmark, HandCoins, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Deuda = {
@@ -13,6 +13,7 @@ type Deuda = {
   cuotas_total: number | null;
   interes_mensual: number | null;
   monto_cuota: number | null;
+  cuotas_detalle: number[] | null;
   fecha_inicio: string;
   activa: boolean;
   notas: string | null;
@@ -36,6 +37,7 @@ const formVacio = {
   monto_cuota: "",
   fecha_inicio: new Date().toISOString().split("T")[0],
   notas: "",
+  cuotasDetalle: [] as string[],
 };
 
 export default function DeudasPage() {
@@ -53,7 +55,6 @@ export default function DeudasPage() {
   async function cargar() {
     setLoading(true);
 
-    // 1. Traer deudas
     const { data: deudasData } = await supabase
       .from("deudas")
       .select("*")
@@ -63,7 +64,6 @@ export default function DeudasPage() {
     const deudasList = (deudasData ?? []) as Deuda[];
     setDeudas(deudasList);
 
-    // 2. Traer categoría "Deudas" y sus subcategorías para vincular pagos
     const { data: catData } = await supabase
       .from("categorias")
       .select("id, subcategorias(id, nombre)")
@@ -72,20 +72,17 @@ export default function DeudasPage() {
 
     const cat = (catData as any)?.[0];
     if (cat) {
-      // Map subcategoria nombre → id
       const subMap: Record<string, string> = {};
       for (const sub of cat.subcategorias ?? []) {
         subMap[sub.nombre.trim().toLowerCase()] = sub.id;
       }
 
-      // 3. Traer todos los gastos de categoría "Deudas"
       const { data: gastosData } = await supabase
         .from("gastos")
         .select("id, monto, descripcion, fecha, mes, subcategoria_id")
         .eq("categoria_id", cat.id)
-        .order("fecha", { ascending: false });
+        .order("fecha", { ascending: true });
 
-      // 4. Agrupar pagos por deuda (match subcategoria nombre con deuda nombre)
       const map: Record<string, PagoDeuda[]> = {};
       for (const d of deudasList) {
         const subId = subMap[d.nombre.trim().toLowerCase()];
@@ -113,7 +110,7 @@ export default function DeudasPage() {
 
   function abrirNuevo() {
     setEditandoId(null);
-    setForm({ ...formVacio });
+    setForm({ ...formVacio, cuotasDetalle: [] });
     setShowForm(true);
   }
 
@@ -128,21 +125,42 @@ export default function DeudasPage() {
       monto_cuota: d.monto_cuota ? String(d.monto_cuota) : "",
       fecha_inicio: d.fecha_inicio,
       notas: d.notas ?? "",
+      cuotasDetalle: d.cuotas_detalle ? d.cuotas_detalle.map(String) : [],
     });
     setShowForm(true);
+  }
+
+  // Cuando cambia cantidad de cuotas, ajustar array de detalle
+  function handleCuotasTotalChange(val: string) {
+    const n = parseInt(val) || 0;
+    const prev = form.cuotasDetalle;
+    const next = Array.from({ length: n }, (_, i) => prev[i] ?? "");
+    setForm({ ...form, cuotas_total: val, cuotasDetalle: next });
+  }
+
+  function handleCuotaDetalleChange(idx: number, val: string) {
+    const next = [...form.cuotasDetalle];
+    next[idx] = val;
+    setForm({ ...form, cuotasDetalle: next });
   }
 
   async function guardar() {
     if (!form.nombre.trim() || !form.monto_total) return;
     setSaving(true);
 
+    const isCuotas = form.tipo === "cuotas";
+    const cuotasDetalle = isCuotas && form.cuotasDetalle.length > 0
+      ? form.cuotasDetalle.map(v => parseFloat(v) || 0)
+      : null;
+
     const payload: any = {
       nombre: form.nombre.trim(),
       tipo: form.tipo,
       monto_total: parseFloat(form.monto_total),
-      cuotas_total: form.tipo === "cuotas" && form.cuotas_total ? parseInt(form.cuotas_total) : null,
-      interes_mensual: form.tipo === "cuotas" && form.interes_mensual ? parseFloat(form.interes_mensual) : null,
-      monto_cuota: form.tipo === "cuotas" && form.monto_cuota ? parseFloat(form.monto_cuota) : null,
+      cuotas_total: isCuotas && form.cuotas_total ? parseInt(form.cuotas_total) : null,
+      interes_mensual: isCuotas && form.interes_mensual ? parseFloat(form.interes_mensual) : null,
+      monto_cuota: isCuotas && form.monto_cuota ? parseFloat(form.monto_cuota) : null,
+      cuotas_detalle: cuotasDetalle,
       fecha_inicio: form.fecha_inicio,
       notas: form.notas.trim() || null,
     };
@@ -170,33 +188,39 @@ export default function DeudasPage() {
     setDeudas(prev => prev.filter(d => d.id !== id));
   }
 
-  // Cálculos helper
+  // Helpers
   function getTotalPagado(deudaId: string): number {
     return (pagosMap[deudaId] ?? []).reduce((s, p) => s + p.monto, 0);
   }
 
+  function getMontoTotalConDetalle(d: Deuda): number {
+    if (d.cuotas_detalle && d.cuotas_detalle.length > 0) {
+      return d.cuotas_detalle.reduce((s, v) => s + v, 0);
+    }
+    return d.monto_total;
+  }
+
   function getSaldoRestante(d: Deuda): number {
-    return Math.max(0, d.monto_total - getTotalPagado(d.id));
+    return Math.max(0, getMontoTotalConDetalle(d) - getTotalPagado(d.id));
   }
 
   function getProgreso(d: Deuda): number {
-    if (d.monto_total <= 0) return 100;
-    return Math.min(100, (getTotalPagado(d.id) / d.monto_total) * 100);
+    const total = getMontoTotalConDetalle(d);
+    if (total <= 0) return 100;
+    return Math.min(100, (getTotalPagado(d.id) / total) * 100);
   }
 
   function getCuotasPagadas(d: Deuda): number {
     return (pagosMap[d.id] ?? []).length;
   }
 
-  // Monto cuota auto-calc
-  const montoCuotaAuto = form.tipo === "cuotas" && form.monto_total && form.cuotas_total
-    ? (parseFloat(form.monto_total) / parseInt(form.cuotas_total)).toFixed(2)
-    : null;
-
   // Totales
-  const totalDeuda = deudas.reduce((s, d) => s + d.monto_total, 0);
+  const totalDeuda = deudas.reduce((s, d) => s + getMontoTotalConDetalle(d), 0);
   const totalPagado = deudas.reduce((s, d) => s + getTotalPagado(d.id), 0);
   const totalRestante = totalDeuda - totalPagado;
+
+  // Suma de cuotas detalle en el form
+  const sumaCuotasForm = form.cuotasDetalle.reduce((s, v) => s + (parseFloat(v) || 0), 0);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -253,17 +277,19 @@ export default function DeudasPage() {
         <div className="text-center py-12 rounded-xl" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
           <Landmark size={40} className="mx-auto mb-3" style={{ color: "#334155" }} />
           <p style={{ color: "#64748b" }}>No hay deudas registradas</p>
-          <p className="text-sm mt-1" style={{ color: "#475569" }}>Cargá una deuda desde el boton "Nueva deuda"</p>
+          <p className="text-sm mt-1" style={{ color: "#475569" }}>Cargá una deuda desde el botón "Nueva deuda"</p>
         </div>
       ) : (
         <div className="space-y-4">
           {deudas.map(d => {
             const pagado = getTotalPagado(d.id);
+            const totalConDetalle = getMontoTotalConDetalle(d);
             const restante = getSaldoRestante(d);
             const progreso = getProgreso(d);
             const pagos = pagosMap[d.id] ?? [];
             const expanded = expandidas.has(d.id);
             const isCuotas = d.tipo === "cuotas";
+            const tieneDetalle = d.cuotas_detalle && d.cuotas_detalle.length > 0;
 
             return (
               <div key={d.id} className="rounded-xl overflow-hidden" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
@@ -282,13 +308,10 @@ export default function DeudasPage() {
                         </span>
                       </div>
 
-                      <div className="flex gap-4 text-sm mt-2" style={{ color: "#94a3b8" }}>
-                        <span>Total: <strong style={{ color: "#e2e8f0" }}>${d.monto_total.toLocaleString("es-AR")}</strong></span>
+                      <div className="flex gap-4 text-sm mt-2 flex-wrap" style={{ color: "#94a3b8" }}>
+                        <span>Total: <strong style={{ color: "#e2e8f0" }}>${totalConDetalle.toLocaleString("es-AR")}</strong></span>
                         {isCuotas && d.cuotas_total && (
                           <span>Cuotas: <strong style={{ color: "#e2e8f0" }}>{getCuotasPagadas(d)}/{d.cuotas_total}</strong></span>
-                        )}
-                        {isCuotas && d.monto_cuota && (
-                          <span>$/cuota: <strong style={{ color: "#e2e8f0" }}>${d.monto_cuota.toLocaleString("es-AR")}</strong></span>
                         )}
                         {isCuotas && d.interes_mensual && d.interes_mensual > 0 && (
                           <span>Interés: <strong style={{ color: "#e2e8f0" }}>{d.interes_mensual}%</strong></span>
@@ -324,6 +347,37 @@ export default function DeudasPage() {
                     </div>
                     <p className="text-xs text-right mt-1" style={{ color: "#64748b" }}>{progreso.toFixed(1)}%</p>
                   </div>
+
+                  {/* Detalle cuota por cuota */}
+                  {isCuotas && tieneDetalle && (
+                    <div className="mt-3 space-y-1">
+                      <p className="text-xs font-medium mb-1" style={{ color: "#94a3b8" }}>Detalle de cuotas</p>
+                      {d.cuotas_detalle!.map((monto, idx) => {
+                        const cuotaNum = idx + 1;
+                        const estaPagada = cuotaNum <= pagos.length;
+                        return (
+                          <div key={idx} className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs" style={{
+                            backgroundColor: estaPagada ? "#22c55e10" : "#0f172a",
+                            border: `1px solid ${estaPagada ? "#22c55e30" : "#334155"}`,
+                          }}>
+                            <div className="flex items-center gap-2">
+                              {estaPagada ? (
+                                <Check size={12} style={{ color: "#22c55e" }} />
+                              ) : (
+                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#334155", display: "inline-block" }} />
+                              )}
+                              <span style={{ color: estaPagada ? "#22c55e" : "#94a3b8" }}>
+                                Cuota {cuotaNum}/{d.cuotas_detalle!.length}
+                              </span>
+                            </div>
+                            <span className="font-medium" style={{ color: estaPagada ? "#22c55e" : "#e2e8f0" }}>
+                              ${monto.toLocaleString("es-AR")}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Historial de pagos (expandible) */}
@@ -361,7 +415,7 @@ export default function DeudasPage() {
 
                 {pagos.length === 0 && (
                   <div className="px-4 pb-3 text-xs" style={{ borderTop: "1px solid #334155", color: "#475569", paddingTop: "8px" }}>
-                    Sin pagos registrados. Cargalos desde Gastos con categoria "Deudas".
+                    Sin pagos registrados. Cargalos desde Gastos con categoría "Deudas".
                   </div>
                 )}
               </div>
@@ -373,7 +427,7 @@ export default function DeudasPage() {
       {/* Modal formulario */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
-          <div className="rounded-xl p-6 w-full max-w-md" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
+          <div className="rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
             <h2 className="text-lg font-bold mb-4" style={{ color: "#e2e8f0" }}>
               {editandoId ? "Editar deuda" : "Nueva deuda"}
             </h2>
@@ -385,7 +439,7 @@ export default function DeudasPage() {
                 <input
                   value={form.nombre}
                   onChange={e => setForm({ ...form, nombre: e.target.value })}
-                  placeholder="Ej: Prestamo Banco, Deuda Juan"
+                  placeholder="Ej: Préstamo Banco, Deuda Juan"
                   className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                   style={{ backgroundColor: "#0f172a", border: "1px solid #334155", color: "#e2e8f0" }}
                 />
@@ -422,7 +476,7 @@ export default function DeudasPage() {
 
               {/* Monto total */}
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: "#94a3b8" }}>Monto total</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: "#94a3b8" }}>Monto original del préstamo</label>
                 <input
                   type="number"
                   value={form.monto_total}
@@ -442,14 +496,14 @@ export default function DeudasPage() {
                       <input
                         type="number"
                         value={form.cuotas_total}
-                        onChange={e => setForm({ ...form, cuotas_total: e.target.value })}
+                        onChange={e => handleCuotasTotalChange(e.target.value)}
                         placeholder="6"
                         className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                         style={{ backgroundColor: "#0f172a", border: "1px solid #334155", color: "#e2e8f0" }}
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-medium mb-1 block" style={{ color: "#94a3b8" }}>Interes mensual %</label>
+                      <label className="text-xs font-medium mb-1 block" style={{ color: "#94a3b8" }}>Interés mensual %</label>
                       <input
                         type="number"
                         step="0.01"
@@ -462,19 +516,34 @@ export default function DeudasPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-medium mb-1 block" style={{ color: "#94a3b8" }}>
-                      Monto por cuota {montoCuotaAuto && <span style={{ color: "#64748b" }}>(auto: ${Number(montoCuotaAuto).toLocaleString("es-AR")})</span>}
-                    </label>
-                    <input
-                      type="number"
-                      value={form.monto_cuota}
-                      onChange={e => setForm({ ...form, monto_cuota: e.target.value })}
-                      placeholder={montoCuotaAuto ?? ""}
-                      className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                      style={{ backgroundColor: "#0f172a", border: "1px solid #334155", color: "#e2e8f0" }}
-                    />
-                  </div>
+                  {/* Detalle cuota por cuota */}
+                  {form.cuotasDetalle.length > 0 && (
+                    <div>
+                      <label className="text-xs font-medium mb-2 block" style={{ color: "#94a3b8" }}>
+                        Monto de cada cuota
+                        {sumaCuotasForm > 0 && (
+                          <span style={{ color: "#64748b" }}> (suma: ${sumaCuotasForm.toLocaleString("es-AR")})</span>
+                        )}
+                      </label>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {form.cuotasDetalle.map((val, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <span className="text-xs w-14 text-right flex-shrink-0" style={{ color: "#64748b" }}>
+                              Cuota {idx + 1}
+                            </span>
+                            <input
+                              type="number"
+                              value={val}
+                              onChange={e => handleCuotaDetalleChange(idx, e.target.value)}
+                              placeholder="0"
+                              className="flex-1 px-3 py-1.5 rounded-lg text-sm outline-none"
+                              style={{ backgroundColor: "#0f172a", border: "1px solid #334155", color: "#e2e8f0" }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 

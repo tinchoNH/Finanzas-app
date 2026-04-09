@@ -124,6 +124,7 @@ create table if not exists deudas (
   cuotas_total int, -- NULL si es libre
   interes_mensual numeric(5,2), -- % mensual, NULL si es libre
   monto_cuota numeric(12,2), -- monto fijo por cuota, NULL si es libre
+  cuotas_detalle jsonb, -- array de montos por cuota [419971.92, 348987.47, ...]
   fecha_inicio date not null default now(),
   activa boolean default true,
   notas text,
