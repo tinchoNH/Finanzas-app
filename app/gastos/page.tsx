@@ -297,7 +297,7 @@ export default function GastosPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Gastos e Ingresos</h1>
           <p className="text-sm mt-1" style={{ color: "#64748b" }}>
@@ -309,14 +309,14 @@ export default function GastosPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={abrirNuevoIngreso}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white"
+            className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg font-medium text-sm text-white"
             style={{ backgroundColor: "#22c55e" }}>
-            <Plus size={16} /> Nuevo ingreso
+            <Plus size={16} /> <span className="hidden sm:inline">Nuevo</span> ingreso
           </button>
           <button onClick={abrirNuevoGasto}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white"
+            className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg font-medium text-sm text-white"
             style={{ backgroundColor: "#0ea5e9" }}>
-            <Plus size={16} /> Nuevo gasto
+            <Plus size={16} /> <span className="hidden sm:inline">Nuevo</span> gasto
           </button>
         </div>
       </div>
@@ -418,8 +418,8 @@ export default function GastosPage() {
       )}
 
       {/* Filtros */}
-      <div className="flex gap-3">
-        <div className="flex items-center gap-2 flex-1 px-3 py-2 rounded-lg"
+      <div className="flex flex-wrap gap-3">
+        <div className="flex items-center gap-2 flex-1 min-w-[200px] px-3 py-2 rounded-lg"
           style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
           <Search size={16} style={{ color: "#64748b" }} />
           <input className="flex-1 bg-transparent text-sm outline-none" style={{ color: "#e2e8f0" }}

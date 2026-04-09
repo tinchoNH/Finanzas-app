@@ -165,7 +165,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Dashboard</h1>
           <p className="text-sm mt-1" style={{ color: "#64748b" }}>
@@ -193,7 +193,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           label="Ingresos del mes" icon={TrendingUp} color="#22c55e"
           value={`$${totalIngresos.toLocaleString("es-AR")}`}
@@ -232,12 +232,12 @@ export default function Dashboard() {
       </div>
 
       {/* Dona + Ingresos */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Distribución dona */}
-        <div className="col-span-2 rounded-xl p-5" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
+        <div className="md:col-span-2 rounded-xl p-5" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
           <h2 className="font-semibold mb-2" style={{ color: "#e2e8f0" }}>Distribución del ingreso</h2>
-          <div className="flex gap-6 items-center">
-            <div style={{ width: 200, height: 180, flexShrink: 0 }}>
+          <div className="flex flex-col md:flex-row gap-6 items-center">
+            <div className="w-full md:w-auto" style={{ width: 200, height: 180, flexShrink: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={distribucion} cx="50%" cy="50%" innerRadius={45} outerRadius={70}
@@ -311,7 +311,8 @@ export default function Dashboard() {
               {cuotasDelMes.length} cuotas
             </span>
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr style={{ borderBottom: "1px solid #334155" }}>
                 {["Concepto", "Tarjeta", "Cuota", "Monto cuota", "Saldo pendiente", "Estado"].map(h => (
@@ -349,6 +350,7 @@ export default function Dashboard() {
               ))}
             </tbody>
           </table>
+          </div>
           <div className="mt-3 pt-3 flex justify-end" style={{ borderTop: "1px solid #334155" }}>
             <span className="text-sm" style={{ color: "#64748b" }}>
               Total cuotas este mes: <strong style={{ color: "#e2e8f0" }}>

@@ -195,14 +195,14 @@ export default function ResumenPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Resumen</h1>
           <p className="text-sm mt-1" style={{ color: "#64748b" }}>
             {MESES[mes]} {anio}{catSeleccionada ? ` · ${catSeleccionada.icono} ${catSeleccionada.nombre}` : ""}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <select className="px-3 py-2 rounded-lg text-sm"
             style={{ backgroundColor: "#1e293b", border: "1px solid #334155", color: "#e2e8f0" }}
             value={catFiltro} onChange={e => setCatFiltro(e.target.value)}>
@@ -268,7 +268,8 @@ export default function ResumenPage() {
                 <p className="text-sm" style={{ color: "#64748b" }}>Sin cuotas activas para {MESES[mes]} {anio}</p>
               </div>
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[500px]">
                 <thead>
                   <tr style={{ borderBottom: "1px solid #334155" }}>
                     {["Tarjeta", "Cuotas del mes", "Pago registrado", "Estado"].map(h => (
@@ -319,11 +320,12 @@ export default function ResumenPage() {
                   </tr>
                 </tfoot>
               </table>
+              </div>
             )}
           </div>
 
           {/* Gráficos */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-xl p-5" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
               <h2 className="font-semibold mb-4" style={{ color: "#e2e8f0" }}>Tendencia — últimos 6 meses</h2>
               {tendencia.every(t => t.gastos === 0 && t.ingresos === 0) ? (
@@ -379,7 +381,7 @@ export default function ResumenPage() {
       ) : (
         /* Vista por categoría */
         <>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="rounded-xl p-5" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
               <p className="text-xs uppercase tracking-wider mb-1" style={{ color: "#64748b" }}>Total {MESES[mes]}</p>
               <p className="text-2xl font-bold" style={{ color: catSeleccionada?.color ?? "#38bdf8" }}>
@@ -387,7 +389,7 @@ export default function ResumenPage() {
               </p>
               <p className="text-xs mt-1" style={{ color: "#64748b" }}>{gastosCat.length} subcategorías</p>
             </div>
-            <div className="col-span-2 rounded-xl p-5" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
+            <div className="md:col-span-2 rounded-xl p-5" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
               <h2 className="font-semibold mb-3" style={{ color: "#e2e8f0" }}>
                 {catSeleccionada?.icono} {catSeleccionada?.nombre} — desglose por subcategoría
               </h2>

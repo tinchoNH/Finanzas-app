@@ -266,7 +266,7 @@ export default function DeudasPage() {
       </div>
 
       {/* Cards resumen */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-xl p-4" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
           <p className="text-xs font-medium mb-1" style={{ color: "#64748b" }}>Total deuda</p>
           <p className="text-xl font-bold" style={{ color: "#e2e8f0" }}>${totalDeuda.toLocaleString("es-AR")}</p>

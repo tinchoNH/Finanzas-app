@@ -194,12 +194,12 @@ export default function TarjetasPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Tarjetas</h1>
           <p className="text-sm mt-1" style={{ color: "#64748b" }}>Cuotas — {meses[mesIdx]} {anio}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <select className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: "#1e293b", border: "1px solid #334155", color: "#e2e8f0" }}
             value={mesIdx} onChange={e => setMesIdx(Number(e.target.value))}>
             {meses.map((m, i) => <option key={m} value={i}>{m}</option>)}
@@ -208,11 +208,11 @@ export default function TarjetasPage() {
             value={anio} onChange={e => setAnio(e.target.value)}>
             {[2024, 2025, 2026, 2027].map(y => <option key={y}>{y}</option>)}
           </select>
-          <button onClick={() => setShowFormTarjeta(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white" style={{ backgroundColor: "#22c55e" }}>
-            <Plus size={16} /> Nueva tarjeta
+          <button onClick={() => setShowFormTarjeta(true)} className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg font-medium text-sm text-white" style={{ backgroundColor: "#22c55e" }}>
+            <Plus size={16} /> <span className="hidden sm:inline">Nueva</span> tarjeta
           </button>
-          <button onClick={abrirNuevo} className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white" style={{ backgroundColor: "#0ea5e9" }}>
-            <Plus size={16} /> Cargar gasto
+          <button onClick={abrirNuevo} className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg font-medium text-sm text-white" style={{ backgroundColor: "#0ea5e9" }}>
+            <Plus size={16} /> <span className="hidden sm:inline">Cargar</span> gasto
           </button>
         </div>
       </div>

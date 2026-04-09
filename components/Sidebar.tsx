@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, CreditCard, Receipt, PieChart, BarChart3, Tag, Download, LogOut, Landmark } from "lucide-react";
+import { LayoutDashboard, CreditCard, Receipt, PieChart, BarChart3, Tag, Download, LogOut, Landmark, Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 
@@ -22,6 +22,7 @@ export default function Sidebar() {
   const router = useRouter();
   const [nombre, setNombre] = useState("...");
   const [inicial, setInicial] = useState("?");
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -33,19 +34,28 @@ export default function Sidebar() {
     });
   }, []);
 
+  // Cerrar sidebar al cambiar de página
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
 
-  return (
-    <aside className="fixed top-0 left-0 h-full flex flex-col" style={{ width: "240px", backgroundColor: "#1e293b", borderRight: "1px solid #334155" }}>
+  const sidebarContent = (
+    <>
       {/* Logo */}
-      <div className="p-5" style={{ borderBottom: "1px solid #334155" }}>
+      <div className="p-5 flex items-center justify-between" style={{ borderBottom: "1px solid #334155" }}>
         <div className="flex items-center gap-2">
           <span className="text-2xl">💰</span>
           <span className="text-lg font-bold" style={{ color: "#38bdf8" }}>Finanzas</span>
         </div>
+        {/* Botón cerrar solo en mobile */}
+        <button className="md:hidden p-1" onClick={() => setMobileOpen(false)} style={{ color: "#94a3b8" }}>
+          <X size={20} />
+        </button>
       </div>
 
       {/* Nav */}
@@ -85,6 +95,36 @@ export default function Sidebar() {
           <LogOut size={16} />
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Botón hamburguesa mobile */}
+      <button
+        className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-lg"
+        style={{ backgroundColor: "#1e293b", border: "1px solid #334155", color: "#94a3b8" }}
+        onClick={() => setMobileOpen(true)}
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* Sidebar desktop: siempre visible */}
+      <aside className="hidden md:flex fixed top-0 left-0 h-full flex-col z-40" style={{ width: "240px", backgroundColor: "#1e293b", borderRight: "1px solid #334155" }}>
+        {sidebarContent}
+      </aside>
+
+      {/* Sidebar mobile: overlay */}
+      {mobileOpen && (
+        <>
+          {/* Fondo oscuro */}
+          <div className="md:hidden fixed inset-0 z-40" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} onClick={() => setMobileOpen(false)} />
+          {/* Panel */}
+          <aside className="md:hidden fixed top-0 left-0 h-full flex flex-col z-50" style={{ width: "260px", backgroundColor: "#1e293b", borderRight: "1px solid #334155" }}>
+            {sidebarContent}
+          </aside>
+        </>
+      )}
+    </>
   );
 }

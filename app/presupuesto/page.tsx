@@ -246,7 +246,7 @@ export default function PresupuestoPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Presupuesto</h1>
           <p className="text-sm mt-1" style={{ color: "#64748b" }}>Distribución del ingreso y seguimiento mensual</p>
@@ -266,7 +266,7 @@ export default function PresupuestoPage() {
       </div>
 
       {/* Distribución del ingreso */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl p-5" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold" style={{ color: "#e2e8f0" }}>Distribución del ingreso</h2>
