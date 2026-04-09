@@ -24,9 +24,6 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <head>
-        <link rel="apple-touch-icon" href="/icon-192.svg" />
-      </head>
       <body style={{ backgroundColor: "#0f172a", color: "#e2e8f0" }}>
         <LayoutClient>{children}</LayoutClient>
         <script
