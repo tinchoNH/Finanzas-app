@@ -188,6 +188,9 @@ create policy "usuarios_propios" on tarjetas for all using (auth.uid() = user_id
 create policy "usuarios_propios" on deudas for all using (auth.uid() = user_id);
 create policy "usuarios_propios" on historial for all using (auth.uid() = user_id);
 
+-- Usuarios: solo puede ver/editar su propio registro
+create policy "usuarios_propios" on usuarios for all using (auth.uid() = id);
+
 -- Categorías y distribución son compartidas (sin RLS)
 create policy "publico" on categorias for all using (true);
 create policy "publico" on subcategorias for all using (true);
