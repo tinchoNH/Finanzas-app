@@ -64,36 +64,58 @@ export default function DeudasPage() {
     const deudasList = (deudasData ?? []) as Deuda[];
     setDeudas(deudasList);
 
+    // Buscar categoría "Deudas" o "Deuda" (flexible)
     const { data: catData } = await supabase
       .from("categorias")
-      .select("id, subcategorias(id, nombre)")
-      .eq("nombre", "Deudas")
+      .select("id, nombre, subcategorias(id, nombre)")
+      .in("nombre", ["Deudas", "Deuda"])
       .limit(1);
 
     const cat = (catData as any)?.[0];
     if (cat) {
+      // Map subcategoria nombre (lowercase) → id
       const subMap: Record<string, string> = {};
+      const subIdToNombre: Record<string, string> = {};
       for (const sub of cat.subcategorias ?? []) {
-        subMap[sub.nombre.trim().toLowerCase()] = sub.id;
+        const key = sub.nombre.trim().toLowerCase();
+        subMap[key] = sub.id;
+        subIdToNombre[sub.id] = sub.nombre;
       }
 
+      // Traer todos los gastos de esa categoría
       const { data: gastosData } = await supabase
         .from("gastos")
         .select("id, monto, descripcion, fecha, mes, subcategoria_id")
         .eq("categoria_id", cat.id)
         .order("fecha", { ascending: true });
 
+      const allGastos = (gastosData ?? []) as any[];
+
       const map: Record<string, PagoDeuda[]> = {};
       for (const d of deudasList) {
-        const subId = subMap[d.nombre.trim().toLowerCase()];
+        const deudaKey = d.nombre.trim().toLowerCase();
+        // Match exacto primero, luego parcial (subcategoria contiene nombre deuda o viceversa)
+        let subId = subMap[deudaKey];
+        if (!subId) {
+          const match = Object.entries(subMap).find(([subKey]) =>
+            subKey.includes(deudaKey) || deudaKey.includes(subKey)
+          );
+          if (match) subId = match[1];
+        }
+
         if (subId) {
-          map[d.id] = (gastosData ?? [])
+          map[d.id] = allGastos
             .filter((g: any) => g.subcategoria_id === subId)
             .map((g: any) => ({ id: g.id, monto: Number(g.monto), descripcion: g.descripcion, fecha: g.fecha, mes: g.mes }));
         } else {
           map[d.id] = [];
         }
       }
+      setPagosMap(map);
+    } else {
+      // No se encontró categoría Deudas/Deuda
+      const map: Record<string, PagoDeuda[]> = {};
+      for (const d of deudasList) map[d.id] = [];
       setPagosMap(map);
     }
 
