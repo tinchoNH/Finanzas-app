@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, TrendingDown, Wallet, CreditCard, RefreshCw } from "lucide-react";
 import { supabase, getCuotaNumero } from "@/lib/supabase";
@@ -46,9 +46,6 @@ export default function Dashboard() {
   const mesStr = `${anio}-${String(mes + 1).padStart(2, "0")}`;
   const [refreshing, setRefreshing] = useState(false);
 
-  // Personal tarjeta names (loaded once, for filtering gastos)
-  const personalNombresRef = useRef<Set<string>>(new Set());
-
   const recargarTodo = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([cargarDatosMes(), cargarHistorico(), cargarCuotas()]);
@@ -56,17 +53,6 @@ export default function Dashboard() {
   }, [mesStr]);
 
   useEffect(() => {
-    // Cargar nombres de tarjetas personales desde DB (es_personal = true)
-    (async () => {
-      try {
-        const { data } = await supabase.from("tarjetas").select("nombre").eq("es_personal", true);
-        if (data && data.length > 0) {
-          personalNombresRef.current = new Set(
-            (data as any[]).map(t => (t.nombre as string).trim().toLowerCase())
-          );
-        }
-      } catch {}
-    })();
     cargarDistribucion();
     cargarCuotas();
   }, []);
@@ -75,6 +61,15 @@ export default function Dashboard() {
     cargarDatosMes();
     cargarHistorico();
   }, [mesStr]);
+
+  async function getPersonalNombres(): Promise<Set<string>> {
+    try {
+      const { data } = await supabase.from("tarjetas").select("nombre").eq("es_personal", true);
+      return new Set((data ?? []).map((t: any) => (t.nombre as string).trim().toLowerCase()));
+    } catch {
+      return new Set();
+    }
+  }
 
   async function cargarDistribucion() {
     const { data } = await supabase.from("distribucion_ingresos").select("*").order("orden");
@@ -100,6 +95,8 @@ export default function Dashboard() {
   async function cargarDatosMes() {
     setLoading(true);
 
+    const personalNombres = await getPersonalNombres();
+
     const { data: gastos } = await supabase
       .from("gastos")
       .select("monto, categoria:categorias(nombre), subcategoria:subcategorias(nombre)")
@@ -108,7 +105,7 @@ export default function Dashboard() {
     const todos = (gastos ?? []) as any[];
     const esPersonalTarjeta = (g: any) =>
       g.categoria?.nombre === "Tarjetas" &&
-      personalNombresRef.current.has((g.subcategoria?.nombre ?? "").trim().toLowerCase());
+      personalNombres.has((g.subcategoria?.nombre ?? "").trim().toLowerCase());
 
     setTotalGastos(todos.filter(g => g.categoria?.nombre !== "Ingresos" && !esPersonalTarjeta(g)).reduce((s: number, g: any) => s + Number(g.monto), 0));
     setTotalIngresos(todos.filter((g: any) => g.categoria?.nombre === "Ingresos").reduce((s: number, g: any) => s + Number(g.monto), 0));
@@ -126,6 +123,8 @@ export default function Dashboard() {
       meses.push({ mes: str, label: MESES_CORTO[d.getMonth()] });
     }
 
+    const personalNombres = await getPersonalNombres();
+
     const historData = await Promise.all(meses.map(async ({ mes: m, label }) => {
       const { data: g } = await supabase
         .from("gastos")
@@ -134,7 +133,7 @@ export default function Dashboard() {
       const todos = (g ?? []) as any[];
       const esPersonalTarjeta = (x: any) =>
         x.categoria?.nombre === "Tarjetas" &&
-        personalNombresRef.current.has((x.subcategoria?.nombre ?? "").trim().toLowerCase());
+        personalNombres.has((x.subcategoria?.nombre ?? "").trim().toLowerCase());
       const gastos = todos.filter((x: any) => x.categoria?.nombre !== "Ingresos" && !esPersonalTarjeta(x)).reduce((s: number, x: any) => s + Number(x.monto), 0);
       const ingresos = todos.filter((x: any) => x.categoria?.nombre === "Ingresos").reduce((s: number, x: any) => s + Number(x.monto), 0);
       return { mes: label, ingresos, gastos };
