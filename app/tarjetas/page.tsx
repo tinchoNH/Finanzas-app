@@ -35,11 +35,19 @@ export default function TarjetasPage() {
   const prevDate     = new Date(anioNum, mesIdx - 1, 1);
   const mesAnteriorStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
 
-  // Cargar preferencia personal desde localStorage
+  // Cargar preferencia personal desde DB (es_personal) + fallback localStorage
   useEffect(() => {
+    // fallback: sync desde localStorage a DB si hay datos viejos
     try {
       const stored = localStorage.getItem("tarjetas_personales");
-      if (stored) setPersonalIds(new Set(JSON.parse(stored)));
+      if (stored) {
+        const ids = JSON.parse(stored) as string[];
+        if (ids.length > 0) {
+          // migrar a DB
+          ids.forEach(id => supabase.from("tarjetas").update({ es_personal: true }).eq("id", id).then(() => {}));
+          localStorage.removeItem("tarjetas_personales");
+        }
+      }
     } catch {}
   }, []);
 
@@ -52,7 +60,13 @@ export default function TarjetasPage() {
       supabase.from("tarjetas").select("*").order("nombre"),
       supabase.from("gastos_cuotas").select("*, tarjeta:tarjetas(*)").eq("activo", true),
     ]);
-    if (tjs) { setTarjetas(tjs); setExpandidas(tjs.map((t: any) => t.id)); }
+    if (tjs) {
+      setTarjetas(tjs);
+      setExpandidas(tjs.map((t: any) => t.id));
+      // Cargar personales desde DB
+      const personales = new Set((tjs as any[]).filter(t => t.es_personal).map(t => t.id as string));
+      setPersonalIds(personales);
+    }
     if (gc) setGastosCuotas(gc);
     setLoading(false);
   }
@@ -105,8 +119,10 @@ export default function TarjetasPage() {
   function togglePersonal(id: string) {
     setPersonalIds(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      try { localStorage.setItem("tarjetas_personales", JSON.stringify([...next])); } catch {}
+      const esPersonal = !next.has(id);
+      esPersonal ? next.add(id) : next.delete(id);
+      // Guardar en DB
+      supabase.from("tarjetas").update({ es_personal: esPersonal }).eq("id", id).then(() => {});
       return next;
     });
   }

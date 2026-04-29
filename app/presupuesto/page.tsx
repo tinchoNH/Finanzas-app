@@ -135,31 +135,17 @@ export default function PresupuestoPage() {
 
     // Calcular tarjetas compartidas (excluir personales) para cumplimiento
     try {
-      const stored = localStorage.getItem("tarjetas_personales");
-      if (stored) {
-        const ids = new Set(JSON.parse(stored) as string[]);
-        if (ids.size > 0) {
-          const { data: tjs } = await supabase.from("tarjetas").select("id, nombre");
-          if (tjs) {
-            const personalNombres = new Set(
-              (tjs as any[]).filter(t => ids.has(t.id)).map(t => (t.nombre as string).trim().toLowerCase())
-            );
-            const totalTarjetas = ((data ?? []) as any[])
-              .filter(g => g.categoria?.nombre === "Tarjetas")
-              .reduce((s: number, g: any) => s + Number(g.monto), 0);
-            const totalPersonal = ((data ?? []) as any[])
-              .filter(g => g.categoria?.nombre === "Tarjetas" && personalNombres.has((g.subcategoria?.nombre ?? "").trim().toLowerCase()))
-              .reduce((s: number, g: any) => s + Number(g.monto), 0);
-            setTotalTarjetasCompartidas(totalTarjetas - totalPersonal);
-          } else {
-            setTotalTarjetasCompartidas(mapaActual[Object.keys(mapaActual).find(k => mapaActual[k].nombre === "Tarjetas") ?? ""]?.real ?? 0);
-          }
-        } else {
-          setTotalTarjetasCompartidas(mapaActual[Object.keys(mapaActual).find(k => mapaActual[k].nombre === "Tarjetas") ?? ""]?.real ?? 0);
-        }
-      } else {
-        setTotalTarjetasCompartidas(mapaActual[Object.keys(mapaActual).find(k => mapaActual[k].nombre === "Tarjetas") ?? ""]?.real ?? 0);
-      }
+      const { data: tjs } = await supabase.from("tarjetas").select("nombre").eq("es_personal", true);
+      const personalNombres = new Set(
+        (tjs ?? []).map((t: any) => (t.nombre as string).trim().toLowerCase())
+      );
+      const totalTarjetas = ((data ?? []) as any[])
+        .filter(g => g.categoria?.nombre === "Tarjetas")
+        .reduce((s: number, g: any) => s + Number(g.monto), 0);
+      const totalPersonal = ((data ?? []) as any[])
+        .filter(g => g.categoria?.nombre === "Tarjetas" && personalNombres.has((g.subcategoria?.nombre ?? "").trim().toLowerCase()))
+        .reduce((s: number, g: any) => s + Number(g.monto), 0);
+      setTotalTarjetasCompartidas(totalTarjetas - totalPersonal);
     } catch {
       setTotalTarjetasCompartidas(resultado.find(r => r.nombre === "Tarjetas")?.real ?? 0);
     }

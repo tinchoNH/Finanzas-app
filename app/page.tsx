@@ -56,20 +56,14 @@ export default function Dashboard() {
   }, [mesStr]);
 
   useEffect(() => {
-    // Cargar IDs personales de localStorage y nombres de tarjetas
+    // Cargar nombres de tarjetas personales desde DB (es_personal = true)
     (async () => {
       try {
-        const stored = localStorage.getItem("tarjetas_personales");
-        if (stored) {
-          const ids = new Set(JSON.parse(stored) as string[]);
-          if (ids.size > 0) {
-            const { data } = await supabase.from("tarjetas").select("id, nombre");
-            if (data) {
-              personalNombresRef.current = new Set(
-                (data as any[]).filter(t => ids.has(t.id)).map(t => (t.nombre as string).trim().toLowerCase())
-              );
-            }
-          }
+        const { data } = await supabase.from("tarjetas").select("nombre").eq("es_personal", true);
+        if (data && data.length > 0) {
+          personalNombresRef.current = new Set(
+            (data as any[]).map(t => (t.nombre as string).trim().toLowerCase())
+          );
         }
       } catch {}
     })();
