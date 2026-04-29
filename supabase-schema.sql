@@ -179,14 +179,14 @@ alter table presupuesto_mensual enable row level security;
 alter table deudas enable row level security;
 alter table historial enable row level security;
 
--- Políticas: cada usuario solo ve sus datos
-create policy "usuarios_propios" on gastos for all using (auth.uid() = user_id);
-create policy "usuarios_propios" on gastos_cuotas for all using (auth.uid() = user_id);
-create policy "usuarios_propios" on pagos for all using (auth.uid() = user_id);
-create policy "usuarios_propios" on ingresos for all using (auth.uid() = user_id);
-create policy "usuarios_propios" on tarjetas for all using (auth.uid() = user_id);
-create policy "usuarios_propios" on deudas for all using (auth.uid() = user_id);
-create policy "usuarios_propios" on historial for all using (auth.uid() = user_id);
+-- Políticas: app compartida — cualquier usuario autenticado puede ver y editar todo
+create policy "compartido" on gastos for all using (auth.uid() is not null) with check (auth.uid() is not null);
+create policy "compartido" on gastos_cuotas for all using (auth.uid() is not null) with check (auth.uid() is not null);
+create policy "compartido" on pagos for all using (auth.uid() is not null) with check (auth.uid() is not null);
+create policy "compartido" on ingresos for all using (auth.uid() is not null) with check (auth.uid() is not null);
+create policy "compartido" on tarjetas for all using (auth.uid() is not null) with check (auth.uid() is not null);
+create policy "compartido" on deudas for all using (auth.uid() is not null) with check (auth.uid() is not null);
+create policy "compartido" on historial for all using (auth.uid() is not null) with check (auth.uid() is not null);
 
 -- Usuarios: solo puede ver/editar su propio registro
 create policy "usuarios_propios" on usuarios for all using (auth.uid() = id);
