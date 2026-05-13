@@ -91,7 +91,7 @@ export default function CategoriasPage() {
     const nombreAnterior = cat?.subcategorias.find(s => s.id === subId)?.nombre;
     await supabase.from("subcategorias").update({ nombre: editSubNombre.trim() }).eq("id", subId);
     // Si es subcategoría de "Tarjetas", sincronizar el nombre en la tabla tarjetas
-    if (cat?.nombre === "Tarjetas" && nombreAnterior) {
+    if (cat?.nombre?.toLowerCase() === "tarjetas" && nombreAnterior) {
       await supabase.from("tarjetas")
         .update({ nombre: editSubNombre.trim() })
         .ilike("nombre", nombreAnterior.trim());
