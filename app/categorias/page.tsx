@@ -87,7 +87,15 @@ export default function CategoriasPage() {
 
   const guardarEdicionSub = async (catId: string, subId: string) => {
     if (!editSubNombre.trim()) return;
+    const cat = categorias.find(c => c.id === catId);
+    const nombreAnterior = cat?.subcategorias.find(s => s.id === subId)?.nombre;
     await supabase.from("subcategorias").update({ nombre: editSubNombre.trim() }).eq("id", subId);
+    // Si es subcategoría de "Tarjetas", sincronizar el nombre en la tabla tarjetas
+    if (cat?.nombre === "Tarjetas" && nombreAnterior) {
+      await supabase.from("tarjetas")
+        .update({ nombre: editSubNombre.trim() })
+        .ilike("nombre", nombreAnterior.trim());
+    }
     setCategorias(prev => prev.map(c =>
       c.id === catId
         ? { ...c, subcategorias: c.subcategorias.map(s => s.id === subId ? { ...s, nombre: editSubNombre.trim() } : s) }
