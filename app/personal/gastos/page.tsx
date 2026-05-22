@@ -76,6 +76,7 @@ export default function MisGastosPage() {
       .select("*, categoria:categorias(nombre,icono,color), subcategoria:subcategorias(nombre)")
       .eq("mes", mesStr)
       .eq("user_id", userId)
+      .eq("es_personal", true)
       .order("fecha", { ascending: false });
     if (data) setGastos(data as Gasto[]);
     setLoading(false);
@@ -132,7 +133,7 @@ export default function MisGastosPage() {
     } else {
       const { data } = await supabase
         .from("gastos")
-        .insert({ ...payload, user_id: userId, mes: mesStr })
+        .insert({ ...payload, user_id: userId, mes: mesStr, es_personal: true })
         .select("*, categoria:categorias(nombre,icono,color), subcategoria:subcategorias(nombre)")
         .single();
       if (data) setGastos(prev => [data as Gasto, ...prev]);

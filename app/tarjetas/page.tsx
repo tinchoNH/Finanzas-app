@@ -57,8 +57,8 @@ export default function TarjetasPage() {
   async function cargar() {
     setLoading(true);
     const [{ data: tjs }, { data: gc }] = await Promise.all([
-      supabase.from("tarjetas").select("*").order("nombre"),
-      supabase.from("gastos_cuotas").select("*, tarjeta:tarjetas(*)").eq("activo", true),
+      supabase.from("tarjetas").select("*").eq("es_personal", false).order("nombre"),
+      supabase.from("gastos_cuotas").select("*, tarjeta:tarjetas(*)").eq("activo", true).eq("es_personal", false),
     ]);
     if (tjs) {
       setTarjetas(tjs);
@@ -87,6 +87,7 @@ export default function TarjetasPage() {
       .from("gastos")
       .select("monto, mes, subcategoria:subcategorias(nombre)")
       .eq("categoria_id", catId)
+      .eq("es_personal", false)
       .in("mes", mesesACargar);
 
     const mapa: Record<string, Record<string, number>> = {};

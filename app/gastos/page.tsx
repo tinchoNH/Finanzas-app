@@ -74,6 +74,7 @@ export default function GastosPage() {
       .from("gastos")
       .select("*, categoria:categorias(nombre,icono,color), subcategoria:subcategorias(nombre)")
       .eq("mes", mesStr)
+      .eq("es_personal", false)
       .order("fecha", { ascending: false });
     if (data) setGastos(data as Gasto[]);
     setLoading(false);

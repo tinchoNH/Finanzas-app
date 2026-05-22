@@ -39,10 +39,10 @@ export default function MiResumenPage() {
     setLoading(true);
 
     const [{ data: ingresos }, { data: gastos }, { data: cuotas }, { data: tarjetas }] = await Promise.all([
-      supabase.from("ingresos").select("monto").eq("mes", mesStr).eq("user_id", userId),
-      supabase.from("gastos").select("monto, categoria:categorias(nombre,icono,color)").eq("mes", mesStr).eq("user_id", userId),
-      supabase.from("gastos_cuotas").select("*, tarjeta:tarjetas(*)").eq("user_id", userId).eq("activo", true),
-      supabase.from("tarjetas").select("id").eq("user_id", userId),
+      supabase.from("ingresos").select("monto").eq("mes", mesStr).eq("user_id", userId).eq("es_personal", true),
+      supabase.from("gastos").select("monto, categoria:categorias(nombre,icono,color)").eq("mes", mesStr).eq("user_id", userId).eq("es_personal", true),
+      supabase.from("gastos_cuotas").select("*, tarjeta:tarjetas(*)").eq("user_id", userId).eq("es_personal", true).eq("activo", true),
+      supabase.from("tarjetas").select("id").eq("user_id", userId).eq("es_personal", true),
     ]);
 
     // Ingresos

@@ -49,8 +49,8 @@ export default function MisTarjetasPage() {
     if (!userId) return;
     setLoading(true);
     const [{ data: tjs }, { data: gc }] = await Promise.all([
-      supabase.from("tarjetas").select("*").eq("user_id", userId).order("nombre"),
-      supabase.from("gastos_cuotas").select("*, tarjeta:tarjetas(*)").eq("user_id", userId).eq("activo", true),
+      supabase.from("tarjetas").select("*").eq("user_id", userId).eq("es_personal", true).order("nombre"),
+      supabase.from("gastos_cuotas").select("*, tarjeta:tarjetas(*)").eq("user_id", userId).eq("es_personal", true).eq("activo", true),
     ]);
     if (tjs) { setTarjetas(tjs); setExpandidas(tjs.map((t: any) => t.id)); }
     if (gc) setGastosCuotas(gc);
@@ -128,7 +128,7 @@ export default function MisTarjetasPage() {
   async function guardarTarjeta() {
     if (!formTarjeta.nombre.trim() || !userId) return;
     const { data } = await supabase.from("tarjetas")
-      .insert({ user_id: userId, nombre: formTarjeta.nombre.trim(), tipo: formTarjeta.tipo, color: formTarjeta.color })
+      .insert({ user_id: userId, nombre: formTarjeta.nombre.trim(), tipo: formTarjeta.tipo, color: formTarjeta.color, es_personal: true })
       .select().single();
     if (data) { setTarjetas(prev => [...prev, data]); setExpandidas(prev => [...prev, data.id]); }
     setFormTarjeta({ nombre: "", tipo: "crédito", color: "#a855f7" });
@@ -158,7 +158,7 @@ export default function MisTarjetasPage() {
       if (data) setGastosCuotas(prev => prev.map(g => g.id === editandoId ? data : g));
     } else {
       const { data } = await supabase.from("gastos_cuotas")
-        .insert({ user_id: userId, tarjeta_id: form.tarjeta_id, descripcion: form.descripcion, monto_total: monto, cantidad_cuotas: cuotas, monto_cuota: montoX, mes_inicio: mesIni, activo: true })
+        .insert({ user_id: userId, tarjeta_id: form.tarjeta_id, descripcion: form.descripcion, monto_total: monto, cantidad_cuotas: cuotas, monto_cuota: montoX, mes_inicio: mesIni, activo: true, es_personal: true })
         .select("*, tarjeta:tarjetas(*)").single();
       if (data) setGastosCuotas(prev => [data, ...prev]);
     }

@@ -49,6 +49,7 @@ export default function MisIngresosPage() {
       .select("*")
       .eq("mes", mesStr)
       .eq("user_id", userId)
+      .eq("es_personal", true)
       .order("fecha_esperada");
     if (data) setIngresos(data as Ingreso[]);
     setLoading(false);
@@ -65,6 +66,7 @@ export default function MisIngresosPage() {
         fecha_esperada: form.fecha_esperada,
         mes: mesStr,
         recurrente: form.recurrente,
+        es_personal: true,
       })
       .select()
       .single();
