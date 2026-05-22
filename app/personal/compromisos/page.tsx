@@ -55,9 +55,9 @@ export default function CompromisosPage() {
 
   useEffect(() => { if (userId) cargar(); }, [userId]);
 
-  async function cargar() {
+  async function cargar(showLoader = true) {
     if (!userId) return;
-    setLoading(true);
+    if (showLoader) setLoading(true);
     const { data } = await supabase
       .from("compromisos_personales")
       .select("*")
@@ -65,7 +65,7 @@ export default function CompromisosPage() {
       .eq("activo", true)
       .order("created_at", { ascending: false });
     if (data) setCompromisos(data as Compromiso[]);
-    setLoading(false);
+    if (showLoader) setLoading(false);
   }
 
   // Filtra los compromisos activos para el mes seleccionado
@@ -99,27 +99,20 @@ export default function CompromisosPage() {
       tipo: form.tipo,
       activo: true,
     };
-    console.log("[Compromisos] Insertando:", payload);
-
     const { data, error } = await supabase
       .from("compromisos_personales")
       .insert(payload)
       .select()
       .single();
 
-    console.log("[Compromisos] Resultado:", { data, error });
     setGuardando(false);
 
     if (error) {
       setErrorMsg("Error: " + error.message + " | code: " + error.code);
       return;
     }
-    if (data) {
-      setCompromisos(prev => [data as Compromiso, ...prev]);
-      resetForm();
-    } else {
-      setErrorMsg("El servidor no devolvió datos. Intentá recargar la página.");
-    }
+    resetForm();
+    await cargar(false);
   }
 
   async function eliminar(id: string) {
