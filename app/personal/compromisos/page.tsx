@@ -180,8 +180,11 @@ export default function CompromisosPage() {
       </div>
 
       {/* DEBUG - borrar después */}
-      <div className="text-xs px-3 py-2 rounded-lg" style={{ backgroundColor: "#0f172a", color: "#64748b" }}>
-        🔍 Debug: {compromisos.length} compromisos en state · {compromisosMes.length} para este mes · userId: {userId ? userId.slice(0,8)+"…" : "null"}
+      <div className="text-xs px-3 py-2 rounded-lg space-y-1" style={{ backgroundColor: "#0f172a", color: "#64748b" }}>
+        <p>🔍 {compromisos.length} en state · {compromisosMes.length} este mes · mesStr: <strong style={{color:"#e2e8f0"}}>{mesStr}</strong></p>
+        {compromisos.slice(0, 5).map(c => (
+          <p key={c.id}>→ mes_inicio: <strong style={{color:"#e2e8f0"}}>{JSON.stringify(c.mes_inicio)}</strong> | cuotas: {c.cantidad_cuotas} | tipo: {c.tipo}</p>
+        ))}
       </div>
 
       {/* Selector mes/año */}
