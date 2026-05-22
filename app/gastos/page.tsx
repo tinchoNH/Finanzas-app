@@ -120,6 +120,61 @@ export default function GastosPage() {
     setShowForm(true);
   }
 
+  // Busca el user_id de un usuario por nombre (para sincronizar ingreso personal)
+  async function getUserIdByNombre(nombre: string): Promise<string | null> {
+    const { data } = await supabase
+      .from("usuarios")
+      .select("id")
+      .ilike("nombre", nombre.trim())
+      .limit(1);
+    return (data as any[])?.[0]?.id ?? null;
+  }
+
+  // Crea o actualiza el ingreso personal del mes para la persona indicada
+  async function syncIngresoPersonal(subcatNombre: string, monto: number, fecha: string, targetMes: string) {
+    const userId = await getUserIdByNombre(subcatNombre);
+    if (!userId) return;
+
+    const { data: existing } = await supabase
+      .from("ingresos")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("mes", targetMes)
+      .eq("tipo", "Personales")
+      .eq("es_personal", true)
+      .limit(1);
+    const existingRow = (existing as any[])?.[0];
+
+    if (existingRow) {
+      await supabase.from("ingresos")
+        .update({ monto, fecha_esperada: fecha })
+        .eq("id", existingRow.id);
+    } else {
+      await supabase.from("ingresos").insert({
+        user_id: userId,
+        tipo: "Personales",
+        monto,
+        fecha_esperada: fecha,
+        mes: targetMes,
+        recurrente: false,
+        es_personal: true,
+      });
+    }
+  }
+
+  // Elimina el ingreso personal del mes para la persona indicada
+  async function deleteIngresoPersonal(subcatNombre: string | undefined, targetMes: string) {
+    if (!subcatNombre) return;
+    const userId = await getUserIdByNombre(subcatNombre);
+    if (!userId) return;
+    await supabase.from("ingresos")
+      .delete()
+      .eq("user_id", userId)
+      .eq("mes", targetMes)
+      .eq("tipo", "Personales")
+      .eq("es_personal", true);
+  }
+
   async function guardarGasto() {
     if (!form.monto || !form.categoria_id) return;
     const payload = {
@@ -133,7 +188,15 @@ export default function GastosPage() {
       pagado: form.pagado,
     };
 
+    const newCatNombre = categorias.find(c => c.id === form.categoria_id)?.nombre ?? "";
+    const newSubcatNombre = categorias.find(c => c.id === form.categoria_id)
+      ?.subcategorias.find(s => s.id === form.subcategoria_id)?.nombre ?? "";
+    const isPersonales = newCatNombre.toLowerCase() === "personales";
+
     if (editandoId) {
+      const original = gastos.find(g => g.id === editandoId);
+      const wasPersonales = original?.categoria?.nombre?.toLowerCase() === "personales";
+
       const { data } = await supabase
         .from("gastos")
         .update(payload)
@@ -141,6 +204,15 @@ export default function GastosPage() {
         .select("*, categoria:categorias(nombre,icono,color), subcategoria:subcategorias(nombre)")
         .single();
       if (data) setGastos(prev => prev.map(g => g.id === editandoId ? data as Gasto : g));
+
+      // Si antes era Personales, borrar ingreso anterior (cubre cambio de subcategoría o categoría)
+      if (wasPersonales) {
+        await deleteIngresoPersonal(original?.subcategoria?.nombre, original!.mes);
+      }
+      // Si ahora es Personales, crear/actualizar ingreso
+      if (isPersonales && newSubcatNombre) {
+        await syncIngresoPersonal(newSubcatNombre, parseFloat(form.monto), form.fecha, mesStr);
+      }
     } else {
       const { data } = await supabase
         .from("gastos")
@@ -148,14 +220,25 @@ export default function GastosPage() {
         .select("*, categoria:categorias(nombre,icono,color), subcategoria:subcategorias(nombre)")
         .single();
       if (data) setGastos(prev => [data as Gasto, ...prev]);
+
+      // Sincronizar ingreso personal si la categoría es "Personales"
+      if (isPersonales && newSubcatNombre) {
+        await syncIngresoPersonal(newSubcatNombre, parseFloat(form.monto), form.fecha, mesStr);
+      }
     }
     resetForm();
   }
 
   async function eliminarGasto(id: string) {
     if (!confirm("¿Eliminar este registro?")) return;
+    const gasto = gastos.find(g => g.id === id);
     await supabase.from("gastos").delete().eq("id", id);
     setGastos(prev => prev.filter(g => g.id !== id));
+
+    // Si era un gasto "Personales", eliminar el ingreso personal vinculado
+    if (gasto?.categoria?.nombre?.toLowerCase() === "personales") {
+      await deleteIngresoPersonal(gasto.subcategoria?.nombre, gasto.mes);
+    }
   }
 
   async function togglePagado(g: Gasto) {
