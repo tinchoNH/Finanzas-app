@@ -82,30 +82,44 @@ export default function CompromisosPage() {
   meCubre.forEach(c => { porPersonaCubre[c.persona] = (porPersonaCubre[c.persona] || 0) + Number(c.monto_cuota); });
 
   async function guardar() {
-    if (!form.descripcion.trim() || !form.monto_cuota || !form.persona.trim() || !userId) return;
-    setGuardando(true);
-    setErrorMsg(null);
-    const { data, error } = await supabase
-      .from("compromisos_personales")
-      .insert({
-        user_id: userId,
-        descripcion: form.descripcion.trim(),
-        persona: form.persona.trim(),
-        monto_cuota: parseFloat(form.monto_cuota),
-        cantidad_cuotas: parseInt(form.cantidad_cuotas) || 1,
-        mes_inicio: form.mes_inicio,
-        tipo: form.tipo,
-        activo: true,
-      })
-      .select()
-      .single();
-    setGuardando(false);
-    if (error) {
-      setErrorMsg("No se pudo guardar: " + error.message);
+    if (!form.descripcion.trim() || !form.monto_cuota || !form.persona.trim() || !userId) {
+      setErrorMsg(`Faltan datos: desc="${form.descripcion}" monto="${form.monto_cuota}" persona="${form.persona}" userId="${userId}"`);
       return;
     }
-    if (data) setCompromisos(prev => [data as Compromiso, ...prev]);
-    resetForm();
+    setGuardando(true);
+    setErrorMsg(null);
+
+    const payload = {
+      user_id: userId,
+      descripcion: form.descripcion.trim(),
+      persona: form.persona.trim(),
+      monto_cuota: parseFloat(form.monto_cuota),
+      cantidad_cuotas: parseInt(form.cantidad_cuotas) || 1,
+      mes_inicio: form.mes_inicio,
+      tipo: form.tipo,
+      activo: true,
+    };
+    console.log("[Compromisos] Insertando:", payload);
+
+    const { data, error } = await supabase
+      .from("compromisos_personales")
+      .insert(payload)
+      .select()
+      .single();
+
+    console.log("[Compromisos] Resultado:", { data, error });
+    setGuardando(false);
+
+    if (error) {
+      setErrorMsg("Error: " + error.message + " | code: " + error.code);
+      return;
+    }
+    if (data) {
+      setCompromisos(prev => [data as Compromiso, ...prev]);
+      resetForm();
+    } else {
+      setErrorMsg("El servidor no devolvió datos. Intentá recargar la página.");
+    }
   }
 
   async function eliminar(id: string) {
