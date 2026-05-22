@@ -88,6 +88,7 @@ export default function Dashboard() {
       .from("gastos_cuotas")
       .select("*, tarjeta:tarjetas(nombre,color)")
       .eq("activo", true)
+      .eq("es_personal", false)
       .order("created_at", { ascending: false });
     if (data) setCuotasActivas(data as GastoCuota[]);
   }

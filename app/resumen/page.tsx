@@ -69,7 +69,7 @@ export default function ResumenPage() {
     const mesAnteriorStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
 
     const [{ data: cuotas }, { data: tarjetas }, { data: catTarjeta }] = await Promise.all([
-      supabase.from("gastos_cuotas").select("*, tarjeta:tarjetas(id,nombre,color)").eq("activo", true),
+      supabase.from("gastos_cuotas").select("*, tarjeta:tarjetas(id,nombre,color)").eq("activo", true).eq("es_personal", false),
       supabase.from("tarjetas").select("id, nombre, color").order("nombre"),
       supabase.from("categorias").select("id").eq("nombre", "Tarjetas").limit(1),
     ]);

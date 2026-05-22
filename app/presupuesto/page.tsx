@@ -182,7 +182,8 @@ export default function PresupuestoPage() {
     const { data: cuotas } = await supabase
       .from("gastos_cuotas")
       .select("mes_inicio, cantidad_cuotas, monto_cuota, tarjeta:tarjetas(nombre,color)")
-      .eq("activo", true);
+      .eq("activo", true)
+      .eq("es_personal", false);
 
     const cuotasMapa: Record<string, EstCuota> = {};
     for (const c of (cuotas ?? []) as any[]) {
