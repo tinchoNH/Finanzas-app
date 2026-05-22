@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, X, HandCoins, ArrowUpCircle } from "lucide-react";
+import { Plus, Trash2, X, HandCoins, ArrowUpCircle, Edit2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Compromiso = {
@@ -33,6 +33,7 @@ export default function CompromisosPage() {
   const [compromisos, setCompromisos] = useState<Compromiso[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -81,33 +82,40 @@ export default function CompromisosPage() {
   const porPersonaCubre: Record<string, number> = {};
   meCubre.forEach(c => { porPersonaCubre[c.persona] = (porPersonaCubre[c.persona] || 0) + Number(c.monto_cuota); });
 
+  function abrirEditar(c: Compromiso) {
+    setEditandoId(c.id);
+    setForm({
+      descripcion: c.descripcion,
+      persona: c.persona,
+      monto_cuota: String(c.monto_cuota),
+      cantidad_cuotas: String(c.cantidad_cuotas),
+      mes_inicio: c.mes_inicio,
+      tipo: c.tipo,
+    });
+    setErrorMsg(null);
+    setShowForm(true);
+  }
+
   async function guardar() {
     if (!form.descripcion.trim() || !form.monto_cuota || !form.persona.trim() || !userId) return;
     setGuardando(true);
     setErrorMsg(null);
 
     const payload = {
-      user_id: userId,
       descripcion: form.descripcion.trim(),
       persona: form.persona.trim(),
       monto_cuota: parseFloat(form.monto_cuota),
       cantidad_cuotas: parseInt(form.cantidad_cuotas) || 1,
       mes_inicio: form.mes_inicio,
       tipo: form.tipo,
-      activo: true,
     };
-    const { data, error } = await supabase
-      .from("compromisos_personales")
-      .insert(payload)
-      .select()
-      .single();
+
+    const { error } = editandoId
+      ? await supabase.from("compromisos_personales").update(payload).eq("id", editandoId)
+      : await supabase.from("compromisos_personales").insert({ ...payload, user_id: userId, activo: true });
 
     setGuardando(false);
-
-    if (error) {
-      setErrorMsg("Error: " + error.message + " | code: " + error.code);
-      return;
-    }
+    if (error) { setErrorMsg("Error: " + error.message); return; }
     resetForm();
     await cargar(false);
   }
@@ -125,6 +133,7 @@ export default function CompromisosPage() {
       mes_inicio: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`,
       tipo: "le_debo",
     });
+    setEditandoId(null);
     setShowForm(false);
   }
 
@@ -191,7 +200,7 @@ export default function CompromisosPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "#00000088" }}>
           <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold" style={{ color: "#e2e8f0" }}>Nuevo compromiso</h2>
+              <h2 className="text-lg font-semibold" style={{ color: "#e2e8f0" }}>{editandoId ? "Editar compromiso" : "Nuevo compromiso"}</h2>
               <button onClick={resetForm} style={{ color: "#64748b" }}><X size={18} /></button>
             </div>
 
@@ -277,7 +286,7 @@ export default function CompromisosPage() {
               <button onClick={guardar} disabled={!formValido || guardando}
                 className="flex-1 py-2 rounded-lg text-sm font-medium text-white"
                 style={{ backgroundColor: formValido && !guardando ? "#a855f7" : "#4c1d95aa" }}>
-                {guardando ? "Guardando..." : "Guardar"}
+                {guardando ? "Guardando..." : editandoId ? "Actualizar" : "Guardar"}
               </button>
             </div>
           </div>
@@ -293,24 +302,18 @@ export default function CompromisosPage() {
         <div className="space-y-6">
           {/* Le debo */}
           <CompromisosTabla
-            items={leDebo}
-            mesStr={mesStr}
+            items={leDebo} mesStr={mesStr}
             titulo="Lo que debo"
             icono={<HandCoins size={14} className="inline mr-1" style={{ color: "#ef4444" }} />}
-            colorTotal="#ef4444"
-            emptyMsg="Sin deudas para este mes 🙌"
-            onEliminar={eliminar}
+            colorTotal="#ef4444" emptyMsg="Sin deudas para este mes 🙌"
+            onEliminar={eliminar} onEditar={abrirEditar}
           />
-
-          {/* Me cubren */}
           <CompromisosTabla
-            items={meCubre}
-            mesStr={mesStr}
+            items={meCubre} mesStr={mesStr}
             titulo="Lo que me cubren"
             icono={<ArrowUpCircle size={14} className="inline mr-1" style={{ color: "#22c55e" }} />}
-            colorTotal="#22c55e"
-            emptyMsg="Sin compromisos de cobertura para este mes"
-            onEliminar={eliminar}
+            colorTotal="#22c55e" emptyMsg="Sin compromisos de cobertura para este mes"
+            onEliminar={eliminar} onEditar={abrirEditar}
           />
         </div>
       )}
@@ -319,7 +322,7 @@ export default function CompromisosPage() {
 }
 
 function CompromisosTabla({
-  items, mesStr, titulo, icono, colorTotal, emptyMsg, onEliminar,
+  items, mesStr, titulo, icono, colorTotal, emptyMsg, onEliminar, onEditar,
 }: {
   items: Compromiso[];
   mesStr: string;
@@ -328,6 +331,7 @@ function CompromisosTabla({
   colorTotal: string;
   emptyMsg: string;
   onEliminar: (id: string) => void;
+  onEditar: (c: Compromiso) => void;
 }) {
   const total = items.reduce((s, c) => s + Number(c.monto_cuota), 0);
 
@@ -360,10 +364,16 @@ function CompromisosTabla({
                     {restantes === 0 && <span style={{ color: "#22c55e" }}> · última cuota</span>}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <p className="font-semibold" style={{ color: colorTotal }}>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold mr-1" style={{ color: colorTotal }}>
                     ${Number(c.monto_cuota).toLocaleString("es-AR")}
                   </p>
+                  <button onClick={() => onEditar(c)} className="p-1.5 rounded-lg"
+                    style={{ color: "#475569" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "#38bdf8")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "#475569")}>
+                    <Edit2 size={14} />
+                  </button>
                   <button onClick={() => onEliminar(c.id)} className="p-1.5 rounded-lg"
                     style={{ color: "#475569" }}
                     onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
