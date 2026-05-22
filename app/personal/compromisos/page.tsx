@@ -33,6 +33,8 @@ export default function CompromisosPage() {
   const [compromisos, setCompromisos] = useState<Compromiso[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [form, setForm] = useState({
     descripcion: "",
@@ -81,7 +83,9 @@ export default function CompromisosPage() {
 
   async function guardar() {
     if (!form.descripcion.trim() || !form.monto_cuota || !form.persona.trim() || !userId) return;
-    const { data } = await supabase
+    setGuardando(true);
+    setErrorMsg(null);
+    const { data, error } = await supabase
       .from("compromisos_personales")
       .insert({
         user_id: userId,
@@ -95,6 +99,11 @@ export default function CompromisosPage() {
       })
       .select()
       .single();
+    setGuardando(false);
+    if (error) {
+      setErrorMsg("No se pudo guardar: " + error.message);
+      return;
+    }
     if (data) setCompromisos(prev => [data as Compromiso, ...prev]);
     resetForm();
   }
@@ -129,7 +138,7 @@ export default function CompromisosPage() {
             {totalCubre > 0 && <> · <span style={{ color: "#22c55e" }}>Me cubren: ${totalCubre.toLocaleString("es-AR")}</span></>}
           </p>
         </div>
-        <button onClick={() => setShowForm(true)}
+        <button onClick={() => { setErrorMsg(null); setShowForm(true); }}
           className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white"
           style={{ backgroundColor: "#a855f7" }}>
           <Plus size={16} /> Nuevo compromiso
@@ -253,13 +262,18 @@ export default function CompromisosPage() {
               </p>
             )}
 
+            {errorMsg && (
+              <p className="text-xs px-3 py-2 rounded-lg" style={{ backgroundColor: "#450a0a", color: "#ef4444" }}>
+                ⚠ {errorMsg}
+              </p>
+            )}
             <div className="flex gap-3 pt-2">
               <button onClick={resetForm} className="flex-1 py-2 rounded-lg text-sm"
                 style={{ backgroundColor: "#334155", color: "#94a3b8" }}>Cancelar</button>
-              <button onClick={guardar} disabled={!formValido}
+              <button onClick={guardar} disabled={!formValido || guardando}
                 className="flex-1 py-2 rounded-lg text-sm font-medium text-white"
-                style={{ backgroundColor: formValido ? "#a855f7" : "#4c1d95aa" }}>
-                Guardar
+                style={{ backgroundColor: formValido && !guardando ? "#a855f7" : "#4c1d95aa" }}>
+                {guardando ? "Guardando..." : "Guardar"}
               </button>
             </div>
           </div>
