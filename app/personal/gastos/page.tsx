@@ -24,7 +24,7 @@ type Gasto = {
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-export default function GastosPage() {
+export default function MisGastosPage() {
   const now = new Date();
   const [mes, setMes] = useState(now.getMonth());
   const [anio, setAnio] = useState(now.getFullYear());
@@ -34,7 +34,7 @@ export default function GastosPage() {
   const [showForm, setShowForm] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [catFiltro, setCatFiltro] = useState("todas");
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState({
     descripcion: "",
@@ -51,29 +51,31 @@ export default function GastosPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setCurrentUserId(data.session.user.id);
+      if (data.session) setUserId(data.session.user.id);
     });
-    cargarCategorias();
   }, []);
 
-  useEffect(() => { cargarGastos(); }, [mesStr]);
+  useEffect(() => { if (userId) { cargarCategorias(); cargarGastos(); } }, [userId, mesStr]);
 
   async function cargarCategorias() {
+    if (!userId) return;
     const { data } = await supabase
       .from("categorias")
       .select("*, subcategorias(*)")
+      .eq("user_id", userId)
       .eq("activa", true)
-      .is("user_id", null)
       .order("orden");
     if (data) setCategorias(data as Categoria[]);
   }
 
   async function cargarGastos() {
+    if (!userId) return;
     setLoading(true);
     const { data } = await supabase
       .from("gastos")
       .select("*, categoria:categorias(nombre,icono,color), subcategoria:subcategorias(nombre)")
       .eq("mes", mesStr)
+      .eq("user_id", userId)
       .order("fecha", { ascending: false });
     if (data) setGastos(data as Gasto[]);
     setLoading(false);
@@ -96,20 +98,7 @@ export default function GastosPage() {
     setShowForm(true);
   }
 
-  function abrirNuevoIngreso() {
-    const catIngresos = categorias.find(c => c.nombre === "Ingresos");
-    setEditandoId(null);
-    setForm({
-      descripcion: "", monto: "",
-      categoria_id: catIngresos?.id ?? "",
-      subcategoria_id: "",
-      fecha: new Date().toISOString().split("T")[0],
-      tiene_vencimiento: false, fecha_vencimiento: "", pagado: false,
-    });
-    setShowForm(true);
-  }
-
-  function abrirNuevoGasto() {
+  function abrirNuevo() {
     setEditandoId(null);
     setForm({
       descripcion: "", monto: "", categoria_id: "", subcategoria_id: "",
@@ -120,7 +109,7 @@ export default function GastosPage() {
   }
 
   async function guardarGasto() {
-    if (!form.monto || !form.categoria_id) return;
+    if (!form.monto || !form.categoria_id || !userId) return;
     const payload = {
       categoria_id: form.categoria_id,
       subcategoria_id: form.subcategoria_id || null,
@@ -143,7 +132,7 @@ export default function GastosPage() {
     } else {
       const { data } = await supabase
         .from("gastos")
-        .insert({ ...payload, user_id: currentUserId, mes: mesStr })
+        .insert({ ...payload, user_id: userId, mes: mesStr })
         .select("*, categoria:categorias(nombre,icono,color), subcategoria:subcategorias(nombre)")
         .single();
       if (data) setGastos(prev => [data as Gasto, ...prev]);
@@ -180,147 +169,37 @@ export default function GastosPage() {
     return matchBusqueda && matchCat;
   });
 
-  // Separar ingresos de gastos
-  const ingresosFiltrados = gastosFiltrados.filter(g => g.categoria?.nombre === "Ingresos");
-  const gastosSinIngresos = gastosFiltrados.filter(g => g.categoria?.nombre !== "Ingresos");
-  const totalIngresosMes = gastos.filter(g => g.categoria?.nombre === "Ingresos").reduce((s, g) => s + g.monto, 0);
-  const totalGastosMes = gastos.filter(g => g.categoria?.nombre !== "Ingresos").reduce((s, g) => s + g.monto, 0);
-
-  // Detectar si el form es para ingreso
+  const totalGastosMes = gastos.reduce((s, g) => s + g.monto, 0);
   const catSeleccionada = categorias.find(c => c.id === form.categoria_id);
-  const esFormIngreso = catSeleccionada?.nombre === "Ingresos";
-  const tituloModal = editandoId
-    ? (esFormIngreso ? "Editar Ingreso" : "Editar Gasto")
-    : (esFormIngreso ? "Nuevo Ingreso" : "Nuevo Gasto");
-
-  function renderTabla(items: Gasto[], titulo: string, icono: string, colorTotal: string, emptyMsg: string) {
-    const total = items.reduce((s, g) => s + g.monto, 0);
-    return (
-      <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
-        <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid #334155" }}>
-          <h2 className="font-semibold" style={{ color: "#e2e8f0" }}>{icono} {titulo} — {MESES[mes]} {anio}</h2>
-          <span className="text-sm font-bold" style={{ color: colorTotal }}>
-            ${total.toLocaleString("es-AR")}
-          </span>
-        </div>
-        {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10">
-            <p className="text-sm" style={{ color: "#64748b" }}>{emptyMsg}</p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #334155", backgroundColor: "#0f172a" }}>
-                    {["Fecha", "Categoría", "Subcategoría", "Monto", "Vencimiento", "Estado", "Descripción", ""].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap"
-                        style={{ color: "#64748b" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((g) => (
-                    <tr key={g.id} style={{ borderBottom: "1px solid #33415530" }}
-                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#0f172a44")}
-                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}>
-                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#64748b" }}>
-                        {new Date(g.fecha + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {g.categoria && (
-                          <span className="px-2 py-0.5 rounded-full text-xs"
-                            style={{ backgroundColor: (g.categoria.color || "#38bdf8") + "22", color: g.categoria.color || "#38bdf8" }}>
-                            {g.categoria.icono} {g.categoria.nombre}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#94a3b8" }}>
-                        {g.subcategoria?.nombre ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: "#e2e8f0" }}>
-                        ${g.monto.toLocaleString("es-AR")}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#64748b" }}>
-                        {g.fecha_vencimiento
-                          ? new Date(g.fecha_vencimiento + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button onClick={() => togglePagado(g)}>
-                          {g.pagado
-                            ? <span className="px-2 py-0.5 rounded-full text-xs flex items-center gap-1"
-                                style={{ backgroundColor: "#14532d", color: "#22c55e" }}>
-                                <Check size={10} /> Pagado
-                              </span>
-                            : <span className="px-2 py-0.5 rounded-full text-xs"
-                                style={{ backgroundColor: "#450a0a", color: "#ef4444" }}>Pendiente</span>
-                          }
-                        </button>
-                      </td>
-                      <td className="px-4 py-3" style={{ color: "#64748b", maxWidth: "160px" }}>
-                        <span className="block truncate text-xs">
-                          {!g.descripcion || g.descripcion === g.subcategoria?.nombre ? "—" : g.descripcion}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1">
-                          <button onClick={() => abrirEditar(g)} className="p-1.5 rounded-lg"
-                            style={{ color: "#475569" }}
-                            onMouseEnter={e => (e.currentTarget.style.color = "#38bdf8")}
-                            onMouseLeave={e => (e.currentTarget.style.color = "#475569")}>
-                            <Edit2 size={14} />
-                          </button>
-                          <button onClick={() => eliminarGasto(g.id)} className="p-1.5 rounded-lg"
-                            style={{ color: "#475569" }}
-                            onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
-                            onMouseLeave={e => (e.currentTarget.style.color = "#475569")}>
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="px-4 py-3 flex justify-between text-sm"
-              style={{ borderTop: "1px solid #334155", color: "#64748b" }}>
-              <span>{items.length} registro{items.length !== 1 ? "s" : ""}</span>
-              <span>Total: <strong style={{ color: colorTotal }}>${total.toLocaleString("es-AR")}</strong></span>
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
+  const tituloModal = editandoId ? "Editar gasto personal" : "Nuevo gasto personal";
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Gastos e Ingresos</h1>
+          <h1 className="text-2xl font-bold" style={{ color: "#e2e8f0" }}>Mis Gastos</h1>
           <p className="text-sm mt-1" style={{ color: "#64748b" }}>
             {MESES[mes]} {anio} ·{" "}
-            <span style={{ color: "#22c55e" }}>Ingresos: ${totalIngresosMes.toLocaleString("es-AR")}</span>
-            {" · "}
-            <span style={{ color: "#ef4444" }}>Gastos: ${totalGastosMes.toLocaleString("es-AR")}</span>
+            <span style={{ color: "#ef4444" }}>Total: ${totalGastosMes.toLocaleString("es-AR")}</span>
           </p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={abrirNuevoIngreso}
-            className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg font-medium text-sm text-white"
-            style={{ backgroundColor: "#22c55e" }}>
-            <Plus size={16} /> <span className="hidden sm:inline">Nuevo</span> ingreso
-          </button>
-          <button onClick={abrirNuevoGasto}
-            className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg font-medium text-sm text-white"
-            style={{ backgroundColor: "#0ea5e9" }}>
-            <Plus size={16} /> <span className="hidden sm:inline">Nuevo</span> gasto
-          </button>
-        </div>
+        <button onClick={abrirNuevo}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white"
+          style={{ backgroundColor: "#a855f7" }}>
+          <Plus size={16} /> Nuevo gasto
+        </button>
       </div>
+
+      {/* Sin categorías warning */}
+      {!loading && categorias.length === 0 && (
+        <div className="px-4 py-3 rounded-xl" style={{ backgroundColor: "#1e1b4b", border: "1px solid #3730a3" }}>
+          <p className="text-sm" style={{ color: "#a5b4fc" }}>
+            Todavía no tenés categorías personales. Creá las tuyas en{" "}
+            <a href="/personal/categorias" style={{ color: "#c4b5fd", textDecoration: "underline" }}>Mis Categorías</a>.
+          </p>
+        </div>
+      )}
 
       {/* Modal */}
       {showForm && (
@@ -335,8 +214,7 @@ export default function GastosPage() {
               <label className="text-xs mb-1 block" style={{ color: "#64748b" }}>Descripción <span style={{ color: "#475569" }}>(opcional)</span></label>
               <input className="w-full px-3 py-2 rounded-lg text-sm"
                 style={{ backgroundColor: "#0f172a", border: "1px solid #334155", color: "#e2e8f0" }}
-                placeholder="—"
-                value={form.descripcion}
+                placeholder="—" value={form.descripcion}
                 onChange={e => setForm(p => ({ ...p, descripcion: e.target.value }))}
                 onKeyDown={e => e.key === "Enter" && guardarGasto()} />
             </div>
@@ -346,8 +224,7 @@ export default function GastosPage() {
                 <label className="text-xs mb-1 block" style={{ color: "#64748b" }}>Monto ($)</label>
                 <input type="number" className="w-full px-3 py-2 rounded-lg text-sm"
                   style={{ backgroundColor: "#0f172a", border: "1px solid #334155", color: "#e2e8f0" }}
-                  placeholder="0"
-                  value={form.monto}
+                  placeholder="0" value={form.monto}
                   onChange={e => setForm(p => ({ ...p, monto: e.target.value }))} />
               </div>
               <div>
@@ -382,14 +259,12 @@ export default function GastosPage() {
 
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox"
-                  checked={form.tiene_vencimiento}
+                <input type="checkbox" checked={form.tiene_vencimiento}
                   onChange={e => setForm(p => ({ ...p, tiene_vencimiento: e.target.checked }))} />
-                <span className="text-sm" style={{ color: "#94a3b8" }}>Tiene fecha de vencimiento</span>
+                <span className="text-sm" style={{ color: "#94a3b8" }}>Tiene vencimiento</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox"
-                  checked={form.pagado}
+                <input type="checkbox" checked={form.pagado}
                   onChange={e => setForm(p => ({ ...p, pagado: e.target.checked }))} />
                 <span className="text-sm" style={{ color: "#94a3b8" }}>Ya pagado</span>
               </label>
@@ -410,7 +285,7 @@ export default function GastosPage() {
                 style={{ backgroundColor: "#334155", color: "#94a3b8" }}>Cancelar</button>
               <button onClick={guardarGasto}
                 className="flex-1 py-2 rounded-lg text-sm font-medium text-white"
-                style={{ backgroundColor: !form.monto || !form.categoria_id ? "#1e3a5f" : esFormIngreso ? "#22c55e" : "#0ea5e9" }}>
+                style={{ backgroundColor: !form.monto || !form.categoria_id ? "#3b2a5a" : "#a855f7" }}>
                 {editandoId ? "Actualizar" : "Guardar"}
               </button>
             </div>
@@ -426,9 +301,7 @@ export default function GastosPage() {
           <input className="flex-1 bg-transparent text-sm outline-none" style={{ color: "#e2e8f0" }}
             placeholder="Buscar..." value={busqueda}
             onChange={e => setBusqueda(e.target.value)} />
-          {busqueda && (
-            <button onClick={() => setBusqueda("")} style={{ color: "#64748b" }}><X size={14} /></button>
-          )}
+          {busqueda && <button onClick={() => setBusqueda("")} style={{ color: "#64748b" }}><X size={14} /></button>}
         </div>
         <select className="px-3 py-2 rounded-lg text-sm"
           style={{ backgroundColor: "#1e293b", border: "1px solid #334155", color: "#e2e8f0" }}
@@ -448,18 +321,107 @@ export default function GastosPage() {
         </select>
       </div>
 
-      {/* Contenido */}
+      {/* Tabla */}
       {loading ? (
         <div className="flex items-center justify-center h-32">
           <p style={{ color: "#64748b" }}>Cargando...</p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Ingresos del mes */}
-          {renderTabla(ingresosFiltrados, "Ingresos del mes", "💵", "#22c55e", `Sin ingresos para ${MESES[mes]} ${anio}`)}
-
-          {/* Gastos del mes */}
-          {renderTabla(gastosSinIngresos, "Gastos del mes", "💸", "#ef4444", `Sin gastos para ${MESES[mes]} ${anio}`)}
+        <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
+          <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid #334155" }}>
+            <h2 className="font-semibold" style={{ color: "#e2e8f0" }}>💸 Mis Gastos — {MESES[mes]} {anio}</h2>
+            <span className="text-sm font-bold" style={{ color: "#ef4444" }}>
+              ${gastosFiltrados.reduce((s, g) => s + g.monto, 0).toLocaleString("es-AR")}
+            </span>
+          </div>
+          {gastosFiltrados.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10">
+              <p className="text-sm" style={{ color: "#64748b" }}>Sin gastos para {MESES[mes]} {anio}</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #334155", backgroundColor: "#0f172a" }}>
+                      {["Fecha", "Categoría", "Subcategoría", "Monto", "Vencimiento", "Estado", "Descripción", ""].map(h => (
+                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap"
+                          style={{ color: "#64748b" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {gastosFiltrados.map((g) => (
+                      <tr key={g.id} style={{ borderBottom: "1px solid #33415530" }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#0f172a44")}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}>
+                        <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#64748b" }}>
+                          {new Date(g.fecha + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {g.categoria && (
+                            <span className="px-2 py-0.5 rounded-full text-xs"
+                              style={{ backgroundColor: (g.categoria.color || "#a855f7") + "22", color: g.categoria.color || "#a855f7" }}>
+                              {g.categoria.icono} {g.categoria.nombre}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#94a3b8" }}>
+                          {g.subcategoria?.nombre ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: "#e2e8f0" }}>
+                          ${g.monto.toLocaleString("es-AR")}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap" style={{ color: "#64748b" }}>
+                          {g.fecha_vencimiento
+                            ? new Date(g.fecha_vencimiento + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button onClick={() => togglePagado(g)}>
+                            {g.pagado
+                              ? <span className="px-2 py-0.5 rounded-full text-xs flex items-center gap-1"
+                                  style={{ backgroundColor: "#14532d", color: "#22c55e" }}>
+                                  <Check size={10} /> Pagado
+                                </span>
+                              : <span className="px-2 py-0.5 rounded-full text-xs"
+                                  style={{ backgroundColor: "#450a0a", color: "#ef4444" }}>Pendiente</span>
+                            }
+                          </button>
+                        </td>
+                        <td className="px-4 py-3" style={{ color: "#64748b", maxWidth: "160px" }}>
+                          <span className="block truncate text-xs">
+                            {!g.descripcion || g.descripcion === g.subcategoria?.nombre ? "—" : g.descripcion}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-1">
+                            <button onClick={() => abrirEditar(g)} className="p-1.5 rounded-lg"
+                              style={{ color: "#475569" }}
+                              onMouseEnter={e => (e.currentTarget.style.color = "#a855f7")}
+                              onMouseLeave={e => (e.currentTarget.style.color = "#475569")}>
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => eliminarGasto(g.id)} className="p-1.5 rounded-lg"
+                              style={{ color: "#475569" }}
+                              onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+                              onMouseLeave={e => (e.currentTarget.style.color = "#475569")}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-4 py-3 flex justify-between text-sm"
+                style={{ borderTop: "1px solid #334155", color: "#64748b" }}>
+                <span>{gastosFiltrados.length} registro{gastosFiltrados.length !== 1 ? "s" : ""}</span>
+                <span>Total: <strong style={{ color: "#ef4444" }}>${gastosFiltrados.reduce((s, g) => s + g.monto, 0).toLocaleString("es-AR")}</strong></span>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

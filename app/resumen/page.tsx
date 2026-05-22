@@ -31,7 +31,7 @@ export default function ResumenPage() {
   const mesStr = `${anio}-${String(mes + 1).padStart(2, "0")}`;
 
   useEffect(() => {
-    supabase.from("categorias").select("id,nombre,icono,color").order("orden")
+    supabase.from("categorias").select("id,nombre,icono,color").is("user_id", null).order("orden")
       .then(({ data }) => { if (data) setCategorias(data as Categoria[]) });
   }, []);
 

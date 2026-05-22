@@ -31,6 +31,7 @@ export default function CategoriasPage() {
       .from("categorias")
       .select("*, subcategorias(*)")
       .eq("activa", true)
+      .is("user_id", null)
       .order("orden");
     if (data) setCategorias(data as Categoria[]);
     setLoading(false);

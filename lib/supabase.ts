@@ -14,6 +14,7 @@ export type Categoria = {
   color: string
   orden: number
   activa: boolean
+  user_id: string | null
 }
 
 export type Subcategoria = {
@@ -123,6 +124,7 @@ export async function getCategorias() {
     .from('categorias')
     .select('*, subcategorias(*)')
     .eq('activa', true)
+    .is('user_id', null)
     .order('orden')
   return data ?? []
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, CreditCard, Receipt, PieChart, BarChart3, Tag, Download, LogOut, Landmark, Menu, X } from "lucide-react";
+import { LayoutDashboard, CreditCard, Receipt, PieChart, BarChart3, Tag, Download, LogOut, Landmark, Menu, X, UserCircle, TrendingUp } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 
@@ -15,6 +15,11 @@ const navItems = [
   { label: "Resumen", href: "/resumen", icon: BarChart3, section: "Análisis" },
   { label: "Categorías", href: "/categorias", icon: Tag, section: "Análisis" },
   { label: "Exportar", href: "/exportar", icon: Download, section: "Análisis" },
+  { label: "Mi Resumen", href: "/personal", icon: UserCircle, section: "Personal" },
+  { label: "Mis Gastos", href: "/personal/gastos", icon: Receipt, section: "Personal" },
+  { label: "Mis Tarjetas", href: "/personal/tarjetas", icon: CreditCard, section: "Personal" },
+  { label: "Mis Ingresos", href: "/personal/ingresos", icon: TrendingUp, section: "Personal" },
+  { label: "Mis Categorías", href: "/personal/categorias", icon: Tag, section: "Personal" },
 ];
 
 export default function Sidebar() {
@@ -60,16 +65,18 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 py-4 overflow-y-auto">
-        {["Principal", "Análisis"].map(section => (
+        {["Principal", "Análisis", "Personal"].map(section => (
           <div key={section} className="mb-2">
             <p className="px-5 mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: "#475569" }}>{section}</p>
             {navItems.filter(item => item.section === section).map(item => {
               const isActive = pathname === item.href;
+              const isPersonal = item.section === "Personal";
+              const activeColor = isPersonal ? "#a855f7" : "#0ea5e9";
               const Icon = item.icon;
               return (
                 <Link key={item.href} href={item.href}
                   className="flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150"
-                  style={{ backgroundColor: isActive ? "#0ea5e9" : "transparent", color: isActive ? "#ffffff" : "#94a3b8" }}
+                  style={{ backgroundColor: isActive ? activeColor : "transparent", color: isActive ? "#ffffff" : "#94a3b8" }}
                   onMouseEnter={e => { if (!isActive) { e.currentTarget.style.backgroundColor = "#334155"; e.currentTarget.style.color = "#e2e8f0"; } }}
                   onMouseLeave={e => { if (!isActive) { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "#94a3b8"; } }}>
                   <Icon size={16} />{item.label}
