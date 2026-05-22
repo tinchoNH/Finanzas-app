@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, CreditCard, Receipt, PieChart, BarChart3, Tag, Download, LogOut, Landmark, Menu, X, UserCircle, TrendingUp } from "lucide-react";
+import { LayoutDashboard, CreditCard, Receipt, PieChart, BarChart3, Tag, Download, LogOut, Landmark, Menu, X, UserCircle, TrendingUp, Handshake } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 
@@ -20,6 +20,7 @@ const navItems = [
   { label: "Mis Tarjetas", href: "/personal/tarjetas", icon: CreditCard, section: "Personal" },
   { label: "Mis Ingresos", href: "/personal/ingresos", icon: TrendingUp, section: "Personal" },
   { label: "Mis Categorías", href: "/personal/categorias", icon: Tag, section: "Personal" },
+  { label: "Compromisos", href: "/personal/compromisos", icon: Handshake, section: "Personal" },
 ];
 
 export default function Sidebar() {
