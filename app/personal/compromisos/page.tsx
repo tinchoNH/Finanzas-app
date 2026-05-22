@@ -56,14 +56,16 @@ export default function CompromisosPage() {
   useEffect(() => { if (userId) cargar(); }, [userId]);
 
   async function cargar(showLoader = true) {
+    console.log("[cargar] userId=", userId);
     if (!userId) return;
     if (showLoader) setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("compromisos_personales")
       .select("*")
       .eq("user_id", userId)
       .eq("activo", true)
       .order("created_at", { ascending: false });
+    console.log("[cargar] resultado:", { count: data?.length, data, error });
     if (data) setCompromisos(data as Compromiso[]);
     if (showLoader) setLoading(false);
   }
@@ -175,6 +177,11 @@ export default function CompromisosPage() {
           </p>
           <p className="text-xs mt-1" style={{ color: "#475569" }}>debo − me cubren</p>
         </div>
+      </div>
+
+      {/* DEBUG - borrar después */}
+      <div className="text-xs px-3 py-2 rounded-lg" style={{ backgroundColor: "#0f172a", color: "#64748b" }}>
+        🔍 Debug: {compromisos.length} compromisos en state · {compromisosMes.length} para este mes · userId: {userId ? userId.slice(0,8)+"…" : "null"}
       </div>
 
       {/* Selector mes/año */}
