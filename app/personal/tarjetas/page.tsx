@@ -59,16 +59,16 @@ export default function MisTarjetasPage() {
 
   async function cargarPagos() {
     if (!userId) return;
-    // Buscar la categoría personal "Tarjetas" del usuario
-    const { data: cat } = await supabase
+    // Buscar categoría "Tarjetas": primero personal, sino la compartida
+    const { data: cats } = await supabase
       .from("categorias")
-      .select("id")
-      .eq("nombre", "Tarjetas")
-      .eq("user_id", userId)
-      .limit(1);
-    const catId = (cat as any)?.[0]?.id;
-    setTieneCatTarjetas(!!catId);
-    if (!catId) return;
+      .select("id, user_id")
+      .eq("nombre", "Tarjetas");
+    const catPersonal = (cats as any[])?.find(c => c.user_id === userId);
+    const catCompartida = (cats as any[])?.find(c => !c.user_id);
+    const catIds = [catPersonal?.id, catCompartida?.id].filter(Boolean);
+    setTieneCatTarjetas(catIds.length > 0);
+    if (catIds.length === 0) return;
 
     const mesesACargar: string[] = [];
     for (let i = 6; i >= 0; i--) {
@@ -79,8 +79,9 @@ export default function MisTarjetasPage() {
     const { data: gastos } = await supabase
       .from("gastos")
       .select("monto, mes, subcategoria:subcategorias(nombre)")
-      .eq("categoria_id", catId)
+      .in("categoria_id", catIds)
       .eq("user_id", userId)
+      .eq("es_personal", true)
       .in("mes", mesesACargar);
 
     const mapa: Record<string, Record<string, number>> = {};
