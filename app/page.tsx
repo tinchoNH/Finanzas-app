@@ -62,15 +62,6 @@ export default function Dashboard() {
     cargarHistorico();
   }, [mesStr]);
 
-  async function getPersonalNombres(): Promise<Set<string>> {
-    try {
-      const { data } = await supabase.from("tarjetas").select("nombre").eq("es_personal", true);
-      return new Set((data ?? []).map((t: any) => (t.nombre as string).trim().toLowerCase()));
-    } catch {
-      return new Set();
-    }
-  }
-
   async function cargarDistribucion() {
     const { data } = await supabase.from("distribucion_ingresos").select("*").order("orden");
     if (data && data.length > 0) setDistribucion(data as Distribucion[]);
@@ -96,19 +87,14 @@ export default function Dashboard() {
   async function cargarDatosMes() {
     setLoading(true);
 
-    const personalNombres = await getPersonalNombres();
-
     const { data: gastos } = await supabase
       .from("gastos")
-      .select("monto, categoria:categorias(nombre), subcategoria:subcategorias(nombre)")
-      .eq("mes", mesStr);
+      .select("monto, categoria:categorias(nombre)")
+      .eq("mes", mesStr)
+      .eq("es_personal", false);
 
     const todos = (gastos ?? []) as any[];
-    const esPersonalTarjeta = (g: any) =>
-      g.categoria?.nombre === "Tarjetas" &&
-      personalNombres.has((g.subcategoria?.nombre ?? "").trim().toLowerCase());
-
-    setTotalGastos(todos.filter(g => g.categoria?.nombre !== "Ingresos" && !esPersonalTarjeta(g)).reduce((s: number, g: any) => s + Number(g.monto), 0));
+    setTotalGastos(todos.filter(g => g.categoria?.nombre !== "Ingresos").reduce((s: number, g: any) => s + Number(g.monto), 0));
     setTotalIngresos(todos.filter((g: any) => g.categoria?.nombre === "Ingresos").reduce((s: number, g: any) => s + Number(g.monto), 0));
 
     setLoading(false);
@@ -124,18 +110,14 @@ export default function Dashboard() {
       meses.push({ mes: str, label: MESES_CORTO[d.getMonth()] });
     }
 
-    const personalNombres = await getPersonalNombres();
-
     const historData = await Promise.all(meses.map(async ({ mes: m, label }) => {
       const { data: g } = await supabase
         .from("gastos")
-        .select("monto, categoria:categorias(nombre), subcategoria:subcategorias(nombre)")
-        .eq("mes", m);
+        .select("monto, categoria:categorias(nombre)")
+        .eq("mes", m)
+        .eq("es_personal", false);
       const todos = (g ?? []) as any[];
-      const esPersonalTarjeta = (x: any) =>
-        x.categoria?.nombre === "Tarjetas" &&
-        personalNombres.has((x.subcategoria?.nombre ?? "").trim().toLowerCase());
-      const gastos = todos.filter((x: any) => x.categoria?.nombre !== "Ingresos" && !esPersonalTarjeta(x)).reduce((s: number, x: any) => s + Number(x.monto), 0);
+      const gastos = todos.filter((x: any) => x.categoria?.nombre !== "Ingresos").reduce((s: number, x: any) => s + Number(x.monto), 0);
       const ingresos = todos.filter((x: any) => x.categoria?.nombre === "Ingresos").reduce((s: number, x: any) => s + Number(x.monto), 0);
       return { mes: label, ingresos, gastos };
     }));
