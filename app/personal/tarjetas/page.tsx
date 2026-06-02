@@ -70,16 +70,10 @@ export default function MisTarjetasPage() {
     setTieneCatTarjetas(catIds.length > 0);
     if (catIds.length === 0) return;
 
-    // Cargar pagos desde el mes más antiguo de las cuotas hasta el mes actual
     const mesesACargar: string[] = [];
-    const primerMes = gastosCuotas.length > 0
-      ? gastosCuotas.reduce((min, g) => g.mes_inicio < min ? g.mes_inicio : min, gastosCuotas[0].mes_inicio)
-      : mesStr;
-    const [pAnio, pMes] = primerMes.split("-").map(Number);
-    let cA = pAnio, cM = pMes;
-    while (`${cA}-${String(cM).padStart(2,"0")}` <= mesStr) {
-      mesesACargar.push(`${cA}-${String(cM).padStart(2,"0")}`);
-      cM++; if (cM > 12) { cM = 1; cA++; }
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(anioNum, mesIdx - i, 1);
+      mesesACargar.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
     }
 
     const { data: gastos } = await supabase
@@ -112,47 +106,18 @@ export default function MisTarjetasPage() {
   }
 
   function getSaldoArrastrado(tarjetaId: string): number {
-    const cuotasDeTarjeta = gastosCuotas.filter(g => g.tarjeta_id === tarjetaId);
-    if (cuotasDeTarjeta.length === 0) return 0;
-
-    const mesesConPago = Object.entries(pagosPorMes)
-      .filter(([, pagos]) => (pagos as Record<string, number>)[tarjetaId] !== undefined)
-      .map(([mes]) => mes)
-      .sort();
-
+    const d2 = new Date(anioNum, mesIdx - 2, 1);
+    const m2Idx = d2.getMonth(); const anio2 = d2.getFullYear();
+    const m2Str = `${anio2}-${String(m2Idx + 1).padStart(2, "0")}`;
+    const cuotas2 = gastosCuotas.filter(g => g.tarjeta_id === tarjetaId)
+      .reduce((s: number, g: any) => { const c = getCuotaParaMes(g, m2Idx, anio2); return s + (c ? Number(g.monto_cuota) : 0); }, 0);
+    const arrastrado2 = Math.max(0, cuotas2 - (pagosPorMes[m2Str]?.[tarjetaId] ?? 0));
     const d1 = new Date(anioNum, mesIdx - 1, 1);
-    const m1Str = `${d1.getFullYear()}-${String(d1.getMonth() + 1).padStart(2, "0")}`;
-
-    if (mesesConPago.length === 0) {
-      // Sin historial de pagos: comportamiento original (2 meses atrás)
-      const d2 = new Date(anioNum, mesIdx - 2, 1);
-      const m2Idx = d2.getMonth(); const anio2 = d2.getFullYear();
-      const m2Str = `${anio2}-${String(m2Idx + 1).padStart(2, "0")}`;
-      const cuotas2 = cuotasDeTarjeta.reduce((s: number, g: any) => { const c = getCuotaParaMes(g, m2Idx, anio2); return s + (c ? Number(g.monto_cuota) : 0); }, 0);
-      const arrastrado2 = Math.max(0, cuotas2 - (pagosPorMes[m2Str]?.[tarjetaId] ?? 0));
-      const m1Idx = d1.getMonth(); const anio1 = d1.getFullYear();
-      const cuotas1 = cuotasDeTarjeta.reduce((s: number, g: any) => { const c = getCuotaParaMes(g, m1Idx, anio1); return s + (c ? Number(g.monto_cuota) : 0); }, 0);
-      return Math.max(0, cuotas1 + arrastrado2 - (pagosPorMes[m1Str]?.[tarjetaId] ?? 0));
-    }
-
-    const primerMesCuota = cuotasDeTarjeta.reduce((min, g) => g.mes_inicio < min ? g.mes_inicio : min, cuotasDeTarjeta[0].mes_inicio);
-    const startMes = mesesConPago[0] < primerMesCuota ? primerMesCuota : mesesConPago[0];
-    const [pAnio, pMes] = startMes.split("-").map(Number);
-
-    let arrastrado = 0;
-    let cA = pAnio, cM = pMes;
-    while (true) {
-      const mStr = `${cA}-${String(cM).padStart(2, "0")}`;
-      if (mStr > m1Str) break;
-      const mIdx = cM - 1;
-      const cuotas = cuotasDeTarjeta.reduce((s: number, g: any) => {
-        const c = getCuotaParaMes(g, mIdx, cA);
-        return s + (c ? Number(g.monto_cuota) : 0);
-      }, 0);
-      arrastrado = Math.max(0, cuotas + arrastrado - (pagosPorMes[mStr]?.[tarjetaId] ?? 0));
-      cM++; if (cM > 12) { cM = 1; cA++; }
-    }
-    return arrastrado;
+    const m1Idx = d1.getMonth(); const anio1 = d1.getFullYear();
+    const m1Str = `${anio1}-${String(m1Idx + 1).padStart(2, "0")}`;
+    const cuotas1 = gastosCuotas.filter(g => g.tarjeta_id === tarjetaId)
+      .reduce((s: number, g: any) => { const c = getCuotaParaMes(g, m1Idx, anio1); return s + (c ? Number(g.monto_cuota) : 0); }, 0);
+    return Math.max(0, cuotas1 + arrastrado2 - (pagosPorMes[m1Str]?.[tarjetaId] ?? 0));
   }
 
   async function guardarTarjeta() {
