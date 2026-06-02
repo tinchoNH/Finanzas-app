@@ -159,27 +159,20 @@ export default function CompromisosPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="rounded-xl px-5 py-4" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
-          <p className="text-xs mb-1" style={{ color: "#64748b" }}>Le debo a otros</p>
+          <p className="text-xs mb-1" style={{ color: "#64748b" }}>Lo que debo este mes</p>
           <p className="text-2xl font-bold" style={{ color: "#ef4444" }}>${totalDebo.toLocaleString("es-AR")}</p>
           <p className="text-xs mt-1" style={{ color: "#475569" }}>
             {Object.entries(porPersonaDebo).map(([p, m]) => `${p}: $${m.toLocaleString("es-AR")}`).join(" · ") || "—"}
           </p>
         </div>
         <div className="rounded-xl px-5 py-4" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
-          <p className="text-xs mb-1" style={{ color: "#64748b" }}>Me cubren</p>
+          <p className="text-xs mb-1" style={{ color: "#64748b" }}>Lo que me cubren</p>
           <p className="text-2xl font-bold" style={{ color: "#22c55e" }}>${totalCubre.toLocaleString("es-AR")}</p>
           <p className="text-xs mt-1" style={{ color: "#475569" }}>
             {Object.entries(porPersonaCubre).map(([p, m]) => `${p}: $${m.toLocaleString("es-AR")}`).join(" · ") || "—"}
           </p>
-        </div>
-        <div className="rounded-xl px-5 py-4 col-span-2 md:col-span-1" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
-          <p className="text-xs mb-1" style={{ color: "#64748b" }}>Impacto neto</p>
-          <p className="text-2xl font-bold" style={{ color: totalDebo - totalCubre > 0 ? "#ef4444" : "#22c55e" }}>
-            ${(totalDebo - totalCubre).toLocaleString("es-AR")}
-          </p>
-          <p className="text-xs mt-1" style={{ color: "#475569" }}>debo − me cubren</p>
         </div>
       </div>
 

@@ -152,50 +152,7 @@ export default function MiResumenPage() {
         </div>
       </div>
 
-      {/* Compromisos del mes */}
-      {(compromisosDebo.length > 0 || compromisosCubre.length > 0) && (
-        <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
-          <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid #334155" }}>
-            <h2 className="font-semibold" style={{ color: "#e2e8f0" }}>
-              <Handshake size={14} className="inline mr-1" style={{ color: "#a855f7" }} />
-              Compromisos {MESES[mes]}
-            </h2>
-            <div className="flex gap-3 text-sm">
-              {totalDebo > 0 && <span style={{ color: "#ef4444" }}>−${totalDebo.toLocaleString("es-AR")}</span>}
-              {totalCubre > 0 && <span style={{ color: "#22c55e" }}>+${totalCubre.toLocaleString("es-AR")}</span>}
-            </div>
-          </div>
-          <div className="divide-y" style={{ borderColor: "#33415530" }}>
-            {[...compromisosDebo, ...compromisosCubre].map((c: any) => {
-              const [anioI, mesI] = c.mes_inicio.split("-").map(Number);
-              const [anioN2, mesN2] = mesStr.split("-").map(Number);
-              const num = (anioN2 - anioI) * 12 + (mesN2 - mesI) + 1;
-              const esDebo = c.tipo === "le_debo";
-              return (
-                <div key={c.id} className="flex items-center justify-between px-5 py-3">
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: "#e2e8f0" }}>{c.descripcion}</p>
-                    <p className="text-xs" style={{ color: "#64748b" }}>
-                      {esDebo ? "A: " : "De: "}{c.persona} · Cuota {num}/{c.cantidad_cuotas}
-                    </p>
-                  </div>
-                  <p className="font-semibold" style={{ color: esDebo ? "#ef4444" : "#22c55e" }}>
-                    {esDebo ? "−" : "+"}${Number(c.monto_cuota).toLocaleString("es-AR")}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-          {(totalDebo > 0 || totalCubre > 0) && (
-            <div className="px-5 py-3 flex justify-between text-sm" style={{ borderTop: "1px solid #334155" }}>
-              <span style={{ color: "#64748b" }}>Impacto neto</span>
-              <span className="font-semibold" style={{ color: totalDebo - totalCubre > 0 ? "#ef4444" : "#22c55e" }}>
-                ${(totalDebo - totalCubre).toLocaleString("es-AR")}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Gastos por categoría */}
