@@ -35,20 +35,9 @@ export default function TarjetasPage() {
   const prevDate     = new Date(anioNum, mesIdx - 1, 1);
   const mesAnteriorStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
 
-  // Cargar preferencia personal desde DB (es_personal) + fallback localStorage
+  // Limpiar localStorage viejo si existe (migración ya fue completada)
   useEffect(() => {
-    // fallback: sync desde localStorage a DB si hay datos viejos
-    try {
-      const stored = localStorage.getItem("tarjetas_personales");
-      if (stored) {
-        const ids = JSON.parse(stored) as string[];
-        if (ids.length > 0) {
-          // migrar a DB
-          ids.forEach(id => supabase.from("tarjetas").update({ es_personal: true }).eq("id", id).then(() => {}));
-          localStorage.removeItem("tarjetas_personales");
-        }
-      }
-    } catch {}
+    try { localStorage.removeItem("tarjetas_personales"); } catch {}
   }, []);
 
   useEffect(() => { cargar(); }, []);
