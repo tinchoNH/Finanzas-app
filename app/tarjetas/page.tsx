@@ -61,7 +61,7 @@ export default function TarjetasPage() {
   }
 
   async function cargarPagos() {
-    const { data: cat } = await supabase.from("categorias").select("id").eq("nombre", "Tarjetas").limit(1);
+    const { data: cat } = await supabase.from("categorias").select("id").eq("nombre", "Tarjetas").is("user_id", null).limit(1);
     const catId = (cat as any)?.[0]?.id;
     if (!catId) return;
 
