@@ -59,11 +59,12 @@ export default function PresupuestoPage() {
   }
 
   async function cargarIngresos() {
-    // Ingresos del mes: gastos con categoría "Ingresos"
+    // Ingresos del mes: gastos con categoría "Ingresos" (solo compartidos)
     const { data } = await supabase
       .from("gastos")
       .select("monto, categoria:categorias(nombre)")
-      .eq("mes", mesStr);
+      .eq("mes", mesStr)
+      .eq("es_personal", false);
     const ingresos = (data ?? []).filter((g: any) => g.categoria?.nombre === "Ingresos");
     if (ingresos.length > 0) {
       setTotalIngresos(ingresos.reduce((s: number, i: any) => s + Number(i.monto), 0));
@@ -76,8 +77,8 @@ export default function PresupuestoPage() {
     const masEsMejorSet = new Set(["Ingresos", "Personales", "Ahorro"]);
 
     const [{ data }, { data: prevData }] = await Promise.all([
-      supabase.from("gastos").select("categoria_id, monto, categoria:categorias(nombre,icono), subcategoria:subcategorias(nombre)").eq("mes", mesStr),
-      supabase.from("gastos").select("categoria_id, monto, categoria:categorias(nombre,icono), subcategoria:subcategorias(nombre)").eq("mes", mesAnteriorStr),
+      supabase.from("gastos").select("categoria_id, monto, categoria:categorias(nombre,icono), subcategoria:subcategorias(nombre)").eq("mes", mesStr).eq("es_personal", false),
+      supabase.from("gastos").select("categoria_id, monto, categoria:categorias(nombre,icono), subcategoria:subcategorias(nombre)").eq("mes", mesAnteriorStr).eq("es_personal", false),
     ]);
 
     // Mapa actual
@@ -133,22 +134,11 @@ export default function PresupuestoPage() {
     // Guardar total sueldos para cumplimiento
     setTotalSueldos(sueldoActual);
 
-    // Calcular tarjetas compartidas (excluir personales) para cumplimiento
-    try {
-      const { data: tjs } = await supabase.from("tarjetas").select("nombre").eq("es_personal", true);
-      const personalNombres = new Set(
-        (tjs ?? []).map((t: any) => (t.nombre as string).trim().toLowerCase())
-      );
-      const totalTarjetas = ((data ?? []) as any[])
-        .filter(g => g.categoria?.nombre === "Tarjetas")
-        .reduce((s: number, g: any) => s + Number(g.monto), 0);
-      const totalPersonal = ((data ?? []) as any[])
-        .filter(g => g.categoria?.nombre === "Tarjetas" && personalNombres.has((g.subcategoria?.nombre ?? "").trim().toLowerCase()))
-        .reduce((s: number, g: any) => s + Number(g.monto), 0);
-      setTotalTarjetasCompartidas(totalTarjetas - totalPersonal);
-    } catch {
-      setTotalTarjetasCompartidas(resultado.find(r => r.nombre === "Tarjetas")?.real ?? 0);
-    }
+    // Total tarjetas compartidas: ya filtrado por es_personal=false en la query principal
+    const totalTarjetas = ((data ?? []) as any[])
+      .filter(g => g.categoria?.nombre === "Tarjetas")
+      .reduce((s: number, g: any) => s + Number(g.monto), 0);
+    setTotalTarjetasCompartidas(totalTarjetas);
 
     setGastosPorCat(resultado);
   }
@@ -158,7 +148,8 @@ export default function PresupuestoPage() {
     const { data } = await supabase
       .from("gastos")
       .select("descripcion, monto, tiene_vencimiento, fecha_vencimiento, categoria:categorias(nombre,icono,color), subcategoria:subcategorias(nombre)")
-      .eq("mes", mesAnteriorStr);
+      .eq("mes", mesAnteriorStr)
+      .eq("es_personal", false);
 
     const conVenc: EstConVenc[] = [];
     const sinVencMapa: Record<string, EstSinVenc> = {};
