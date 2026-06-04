@@ -333,7 +333,7 @@ export default function PresupuestoPage() {
                   "Tarjetas": ["Tarjetas"],
                   "Personales": ["Personales"],
                   "Ahorro": ["Ahorro"],
-                  "Deuda": ["Deuda"],
+                  "Deuda": ["Deuda", "Deudas"],
                 };
                 return distribucion.map(d => {
                   const presup = Math.round(totalSueldos * d.porcentaje / 100);
