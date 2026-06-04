@@ -116,13 +116,11 @@ export default function TarjetasPage() {
     return Math.max(0, cuotas1 + arrastrado2 - (pagosPorMes[m1Str]?.[tarjetaId] ?? 0));
   }
 
+  // Toggle local (no guarda en DB) — solo oculta del total para este mes
   function togglePersonal(id: string) {
     setPersonalIds(prev => {
       const next = new Set(prev);
-      const esPersonal = !next.has(id);
-      esPersonal ? next.add(id) : next.delete(id);
-      // Guardar en DB
-      supabase.from("tarjetas").update({ es_personal: esPersonal }).eq("id", id).then(() => {});
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   }
@@ -374,11 +372,11 @@ export default function TarjetasPage() {
                 <div className="flex items-center justify-between px-5 py-4"
                   style={{ borderBottom: isExp ? "1px solid #334155" : "none" }}>
                   {/* Toggle personal */}
-                  <button onClick={() => togglePersonal(tarjeta.id)} title={esPersonal ? "Incluir en total compartido" : "Marcar como personal (excluir del total)"}
+                  <button onClick={() => togglePersonal(tarjeta.id)} title={esPersonal ? "Mostrar en el total" : "Ocultar del total (ya pagada)"}
                     className="p-1.5 rounded-lg mr-2 flex-shrink-0"
-                    style={{ backgroundColor: esPersonal ? "#1e1b4b" : "transparent", color: esPersonal ? "#818cf8" : "#334155" }}
-                    onMouseEnter={e => (e.currentTarget.style.color = esPersonal ? "#a5b4fc" : "#64748b")}
-                    onMouseLeave={e => (e.currentTarget.style.color = esPersonal ? "#818cf8" : "#334155")}>
+                    style={{ backgroundColor: esPersonal ? "#164e63" : "transparent", color: esPersonal ? "#22d3ee" : "#334155" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = esPersonal ? "#67e8f9" : "#64748b")}
+                    onMouseLeave={e => (e.currentTarget.style.color = esPersonal ? "#22d3ee" : "#334155")}>
                     {esPersonal ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
 
@@ -529,7 +527,7 @@ export default function TarjetasPage() {
               <p className="font-semibold" style={{ color: "#93c5fd" }}>Total cuotas compartidas — {meses[mesIdx]} {anio}</p>
               {personalIds.size > 0 && (
                 <p className="text-xs mt-0.5" style={{ color: "#475569" }}>
-                  {personalIds.size} tarjeta{personalIds.size > 1 ? "s" : ""} personal{personalIds.size > 1 ? "es" : ""} excluida{personalIds.size > 1 ? "s" : ""}
+                  {personalIds.size} tarjeta{personalIds.size > 1 ? "s" : ""} oculta{personalIds.size > 1 ? "s" : ""} del total (ya pagada{personalIds.size > 1 ? "s" : ""})
                 </p>
               )}
             </div>
