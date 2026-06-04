@@ -52,9 +52,6 @@ export default function TarjetasPage() {
     if (tjs) {
       setTarjetas(tjs);
       setExpandidas(tjs.map((t: any) => t.id));
-      // Cargar personales desde DB
-      const personales = new Set((tjs as any[]).filter(t => t.es_personal).map(t => t.id as string));
-      setPersonalIds(personales);
     }
     if (gc) setGastosCuotas(gc);
     setLoading(false);
@@ -389,7 +386,7 @@ export default function TarjetasPage() {
                       <div className="flex items-center gap-2">
                         <p className="font-semibold" style={{ color: "#e2e8f0" }}>{tarjeta.nombre}</p>
                         {esPersonal && (
-                          <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "#1e1b4b", color: "#818cf8" }}>Personal</span>
+                          <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "#164e63", color: "#22d3ee" }}>Ya pagada</span>
                         )}
                       </div>
                       <p className="text-xs" style={{ color: "#64748b" }}>
