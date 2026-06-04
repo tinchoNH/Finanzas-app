@@ -280,7 +280,7 @@ export default function PresupuestoPage() {
           ) : (
             <div className="space-y-3">
               {(editando ? editTemp : distribucion).map((d, i) => {
-                const monto = Math.round(totalIngresos * d.porcentaje / 100);
+                const monto = Math.round((totalSueldos > 0 ? totalSueldos : totalIngresos) * d.porcentaje / 100);
                 return (
                   <div key={d.id} className="flex items-center gap-3">
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
@@ -333,7 +333,7 @@ export default function PresupuestoPage() {
                   "Tarjetas": ["Tarjetas"],
                   "Personales": ["Personales"],
                   "Ahorro": ["Ahorro"],
-                  "Deuda": [],
+                  "Deuda": ["Deuda"],
                 };
                 return distribucion.map(d => {
                   const presup = Math.round(totalSueldos * d.porcentaje / 100);
